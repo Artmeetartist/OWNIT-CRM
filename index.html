@@ -14,6 +14,10 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+    <!-- Google Identity Services & Drive API for Backup -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+
     <style>
         :root {
             --bg-body: #f8fafc;
@@ -27,11 +31,16 @@
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-body);
+            -webkit-tap-highlight-color: transparent;
         }
 
         /* Smooth UI transitions */
-        .fade-in { animation: fadeIn 0.2s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Slide up for mobile app feel */
+        .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -105,53 +114,93 @@
         .flash-success {
             animation: flashSuccess 1s ease-out;
         }
+        
+        /* Toggle Switch */
+        .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #2563eb; }
+        input:checked + .slider:before { transform: translateX(14px); }
+
+        /* Sidebar transitions */
+        .sidebar-transition { transition: width 0.3s ease; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden text-slate-800">
 
-    <!-- SIDEBAR -->
-    <aside class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex z-20 shadow-xl">
-        <div class="p-6 border-b border-slate-800 flex items-center gap-3">
-            <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-xl shadow-lg">O</div>
-            <div>
+    <!-- SIDEBAR (Violet/Pink Theme) -->
+    <aside id="sidebar" class="w-64 bg-gradient-to-b from-violet-900 to-fuchsia-900 text-white flex-col hidden md:flex z-20 shadow-xl sidebar-transition flex-shrink-0">
+        <div class="p-6 border-b border-white/10 flex items-center gap-3 overflow-hidden h-[88px] box-border">
+            <div class="w-8 h-8 flex-shrink-0 bg-white text-violet-900 rounded flex items-center justify-center font-bold text-xl shadow-lg">O</div>
+            <div id="logo-text" class="whitespace-nowrap transition-opacity duration-200">
                 <h1 class="text-lg font-bold tracking-wide leading-tight">OWNIT</h1>
-                <p class="text-[10px] text-blue-400 uppercase tracking-widest font-semibold">Software Pvt Ltd</p>
+                <p class="text-[10px] text-fuchsia-200 uppercase tracking-widest font-semibold mt-0.5">Stop Renting, Ownit.</p>
             </div>
         </div>
 
-        <nav class="flex-1 p-4 space-y-2 mt-4">
-            <button onclick="switchView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 p-3 rounded-lg bg-blue-600 text-white transition font-medium shadow-md">
-                <i class="fa-solid fa-chart-pie w-5"></i> Dashboard
+        <nav class="flex-1 p-4 space-y-2 mt-4 overflow-x-hidden">
+            <button onclick="switchView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 p-3 rounded-lg bg-white/20 text-white transition font-medium shadow-md group">
+                <i class="fa-solid fa-chart-pie w-5 text-center flex-shrink-0"></i> 
+                <span class="nav-text whitespace-nowrap group-hover:text-white">Dashboard</span>
             </button>
-            <button onclick="switchView('leads')" id="nav-leads" class="w-full flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition font-medium">
-                <i class="fa-solid fa-list-ul w-5"></i> Pipeline
+            <button onclick="switchView('campaigns')" id="nav-campaigns" class="w-full flex items-center gap-3 p-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition font-medium group">
+                <i class="fa-solid fa-layer-group w-5 text-center flex-shrink-0"></i> 
+                <span class="nav-text whitespace-nowrap">Campaigns</span>
             </button>
-            <button onclick="switchView('calendar')" id="nav-calendar" class="w-full flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition font-medium">
-                <i class="fa-regular fa-calendar-check w-5"></i> Agenda
+            <button onclick="switchView('leads')" id="nav-leads" class="w-full flex items-center gap-3 p-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition font-medium group">
+                <i class="fa-solid fa-users w-5 text-center flex-shrink-0"></i> 
+                <span class="nav-text whitespace-nowrap">All Leads</span>
             </button>
-            <button onclick="switchView('upload')" id="nav-upload" class="w-full flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition font-medium">
-                <i class="fa-solid fa-cloud-arrow-up w-5"></i> Import Leads
+            <button onclick="switchView('calendar')" id="nav-calendar" class="w-full flex items-center gap-3 p-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition font-medium group">
+                <i class="fa-regular fa-calendar-check w-5 text-center flex-shrink-0"></i> 
+                <span class="nav-text whitespace-nowrap">Agenda</span>
+            </button>
+            <button onclick="switchView('upload')" id="nav-upload" class="w-full flex items-center gap-3 p-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition font-medium group">
+                <i class="fa-solid fa-cloud-arrow-up w-5 text-center flex-shrink-0"></i> 
+                <span class="nav-text whitespace-nowrap">Import Leads</span>
             </button>
         </nav>
 
-        <div class="p-4 border-t border-slate-800">
-            <button onclick="wipeData()" class="w-full flex items-center justify-center gap-2 p-2 rounded text-red-400 hover:bg-slate-800 transition text-sm">
-                <i class="fa-solid fa-trash-can"></i> Reset Database
+        <div class="p-4 border-t border-white/10 overflow-x-hidden">
+            <button onclick="switchView('backup')" id="nav-backup" class="w-full flex items-center gap-3 p-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition font-medium mb-2 group">
+                <i class="fa-solid fa-hard-drive w-5 text-center flex-shrink-0"></i> 
+                <span class="nav-text whitespace-nowrap">Data Backup</span>
+            </button>
+            <button onclick="wipeData()" class="w-full flex items-center gap-3 p-3 rounded-lg text-pink-300 hover:bg-white/10 hover:text-pink-200 transition text-sm group">
+                <i class="fa-solid fa-trash-can w-5 text-center flex-shrink-0"></i> 
+                <span class="nav-text whitespace-nowrap">Reset DB</span>
             </button>
         </div>
     </aside>
 
     <!-- MAIN CONTENT -->
-    <main class="flex-1 flex flex-col h-screen relative">
+    <main class="flex-1 flex flex-col h-screen relative min-w-0">
         
-        <!-- Mobile Header -->
-        <header class="bg-white shadow-sm p-4 flex justify-between items-center md:hidden z-10">
-            <div class="font-bold text-blue-600 flex items-center gap-2"><i class="fa-solid fa-bolt"></i> OWNIT CRM</div>
-            <button class="text-slate-600 p-2" onclick="document.querySelector('aside').classList.toggle('hidden')"><i class="fa-solid fa-bars text-xl"></i></button>
+        <!-- App Header -->
+        <header class="bg-white shadow-sm p-4 flex justify-between items-center z-10 border-b border-slate-100 flex-shrink-0">
+            <div class="flex items-center gap-4">
+                <button class="text-slate-600 p-2 hover:bg-slate-100 rounded transition md:hidden" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <button class="text-slate-600 p-2 hover:bg-slate-100 rounded transition hidden md:block" onclick="toggleSidebarDesktop()">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <div class="font-bold text-violet-700 flex items-center gap-2 md:hidden">
+                    <i class="fa-solid fa-bolt"></i> OWNIT
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="flex items-center gap-4">
+                <button onclick="switchView('upload')" class="hidden md:flex bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg shadow-sm text-sm font-medium items-center gap-2 transition">
+                    <i class="fa-solid fa-plus"></i> New Leads
+                </button>
+            </div>
         </header>
 
         <!-- VIEWS CONTAINER -->
-        <div class="flex-1 overflow-auto p-4 md:p-8 relative">
+        <div class="flex-1 overflow-auto p-4 md:p-8 relative pb-24">
             
             <!-- 1. DASHBOARD VIEW -->
             <div id="view-dashboard" class="fade-in">
@@ -161,26 +210,22 @@
                 </div>
 
                 <!-- KPIs -->
-                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
-                    <div onclick="filterFromDashboard('ALL')" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 border-l-4 border-l-blue-500 cursor-pointer transform hover:-translate-y-1 hover:shadow-md transition">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+                    <div onclick="filterFromDashboard('ALL')" class="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-slate-100 border-l-4 border-l-blue-500 cursor-pointer transform hover:-translate-y-1 hover:shadow-md transition">
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Leads</p>
                         <h3 class="text-2xl font-bold text-slate-800 mt-2" id="kpi-total">0</h3>
                     </div>
-                    <div onclick="filterFromDashboard('HOT')" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 border-l-4 border-l-red-500 cursor-pointer transform hover:-translate-y-1 hover:shadow-md transition">
+                    <div onclick="filterFromDashboard('HOT')" class="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-slate-100 border-l-4 border-l-red-500 cursor-pointer transform hover:-translate-y-1 hover:shadow-md transition">
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hot Leads 🔥</p>
                         <h3 class="text-2xl font-bold text-red-600 mt-2" id="kpi-hot">0</h3>
                     </div>
-                    <div onclick="filterFromDashboard('APPT')" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 border-l-4 border-l-purple-500 cursor-pointer transform hover:-translate-y-1 hover:shadow-md transition">
+                    <div onclick="filterFromDashboard('APPT')" class="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-slate-100 border-l-4 border-l-purple-500 cursor-pointer transform hover:-translate-y-1 hover:shadow-md transition">
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Appointments</p>
                         <h3 class="text-2xl font-bold text-purple-600 mt-2" id="kpi-appointments">0</h3>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 border-l-4 border-l-emerald-500">
+                    <div class="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-slate-100 border-l-4 border-l-emerald-500">
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Exp. Revenue</p>
                         <h3 class="text-2xl font-bold text-emerald-600 mt-2" id="kpi-revenue">$0</h3>
-                    </div>
-                    <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 border-l-4 border-l-slate-300">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Conversion</p>
-                        <h3 class="text-2xl font-bold text-slate-600 mt-2" id="kpi-conversion">0%</h3>
                     </div>
                 </div>
 
@@ -197,17 +242,16 @@
                     <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden lg:col-span-2">
                         <div class="p-5 border-b border-slate-100 flex justify-between items-center">
                             <h3 class="font-bold text-slate-700">Recent Hot Opportunities</h3>
-                            <button onclick="filterFromDashboard('HOT')" class="text-sm text-blue-600 hover:underline">View All</button>
+                            <button onclick="filterFromDashboard('HOT')" class="text-sm text-violet-600 hover:underline">View All</button>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-sm">
                                 <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider">
                                     <tr>
-                                        <th class="p-4 font-bold">Business</th>
-                                        <th class="p-4 font-bold">Contact</th>
-                                        <th class="p-4 font-bold">Score</th>
-                                        <th class="p-4 font-bold">City</th>
-                                        <th class="p-4 font-bold text-right">Actions</th>
+                                        <th class="p-4 font-bold whitespace-nowrap">Business</th>
+                                        <th class="p-4 font-bold whitespace-nowrap">Contact</th>
+                                        <th class="p-4 font-bold whitespace-nowrap">Score</th>
+                                        <th class="p-4 font-bold whitespace-nowrap text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="dashboard-recent-hot" class="divide-y divide-slate-100">
@@ -219,39 +263,53 @@
                 </div>
             </div>
 
+            <!-- 1.5 CAMPAIGNS VIEW -->
+            <div id="view-campaigns" class="hidden-view fade-in">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800">Campaign Management</h2>
+                    <p class="text-slate-500 text-sm">Track performance across different data imports and outreach lists.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="campaigns-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
             <!-- 2. LEADS / PIPELINE VIEW -->
             <div id="view-leads" class="hidden-view fade-in">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <div>
-                        <h2 class="text-2xl font-bold text-slate-800">Lead Pipeline</h2>
-                        <p class="text-slate-500 text-sm">Manage, filter, and engage with your leads.</p>
+                        <h2 class="text-2xl font-bold text-slate-800">All Leads Database</h2>
+                        <p class="text-slate-500 text-sm">Search, filter, and interact with your complete leads directory.</p>
                     </div>
-                    <button onclick="switchView('upload')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-sm font-medium flex items-center gap-2 transition">
-                        <i class="fa-solid fa-plus"></i> Import New
-                    </button>
                 </div>
 
                 <!-- Filters -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6 flex flex-wrap gap-4 items-center">
                     <div class="relative flex-1 min-w-[200px]">
                         <i class="fa-solid fa-search absolute left-3 top-3.5 text-slate-400"></i>
-                        <input type="text" id="search-input" placeholder="Search by name, business, or phone..." class="w-full pl-10 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition text-sm" oninput="filterLeads()">
+                        <input type="text" id="search-input" placeholder="Search by name, business, or phone..." class="w-full pl-10 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:outline-none transition text-sm" oninput="filterLeads()">
                     </div>
-                    <select id="filter-temp" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" onchange="filterLeads()">
+                    <select id="filter-campaign" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 outline-none" onchange="filterLeads()">
+                        <option value="">All Campaigns</option>
+                        <!-- Populated by JS -->
+                    </select>
+                    <select id="filter-temp" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 outline-none" onchange="filterLeads()">
                         <option value="">All Temperatures</option>
                         <option value="HOT">Hot Leads 🔥 (>70)</option>
                         <option value="WARM">Warm Leads ⚡ (40-70)</option>
                         <option value="COLD">Cold Leads ❄️ (<40)</option>
                     </select>
-                    <select id="filter-city" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" onchange="filterLeads()">
+                    <select id="filter-city" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 outline-none" onchange="filterLeads()">
                         <option value="">All Cities</option>
                         <!-- Populated by JS -->
                     </select>
-                    <select id="filter-appt" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" onchange="filterLeads()">
+                    <select id="filter-appt" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 outline-none" onchange="filterLeads()">
                         <option value="">Any Appointment</option>
                         <option value="yes">Has Appointment</option>
                         <option value="no">No Appointment</option>
                     </select>
+                    <button onclick="resetFilters()" class="text-sm text-violet-600 hover:underline px-2">Reset</button>
                 </div>
 
                 <!-- Leads Table -->
@@ -260,12 +318,12 @@
                         <table class="w-full text-left text-sm">
                             <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider">
                                 <tr>
-                                    <th class="p-4 font-bold">Business Info</th>
-                                    <th class="p-4 font-bold">Owner Contact</th>
-                                    <th class="p-4 font-bold text-center">Score & Temp</th>
-                                    <th class="p-4 font-bold">Next Action</th>
-                                    <th class="p-4 font-bold">Workflow Status</th>
-                                    <th class="p-4 font-bold text-right">Quick Actions</th>
+                                    <th class="p-4 font-bold whitespace-nowrap">Business Info</th>
+                                    <th class="p-4 font-bold whitespace-nowrap">Owner Contact</th>
+                                    <th class="p-4 font-bold text-center whitespace-nowrap">Score & Temp</th>
+                                    <th class="p-4 font-bold whitespace-nowrap">Next Action</th>
+                                    <th class="p-4 font-bold whitespace-nowrap">Workflow Status</th>
+                                    <th class="p-4 font-bold text-right whitespace-nowrap">Quick Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="leads-table-body" class="divide-y divide-slate-100">
@@ -322,14 +380,22 @@
                 </div>
 
                 <!-- Step 1: Upload -->
-                <div id="upload-step-1" class="bg-white rounded-xl shadow-sm border border-slate-100 p-8">
-                    <div class="mb-6">
-                        <label class="block text-sm font-bold text-slate-700 mb-1">Target City (for +10 Score Bonus)</label>
-                        <input type="text" id="inp-target-city" placeholder="e.g., San Francisco" class="w-full md:w-1/2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" value="San Francisco">
+                <div id="upload-step-1" class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 md:p-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Campaign Name *</label>
+                            <input type="text" id="inp-campaign-name" placeholder="e.g., Q3 Local Outreach" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm" value="Default Campaign">
+                            <p class="text-[10px] text-slate-400 mt-1">Group these leads into a trackable campaign.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Target City (Score Bonus)</label>
+                            <input type="text" id="inp-target-city" placeholder="e.g., San Francisco" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm" value="San Francisco">
+                            <p class="text-[10px] text-slate-400 mt-1">Leads in this city get +10 priority points.</p>
+                        </div>
                     </div>
 
-                    <div id="drop-zone" class="drop-zone rounded-xl p-12 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-slate-100 text-slate-500 relative">
-                        <i class="fa-solid fa-file-csv text-5xl mb-4 text-blue-300"></i>
+                    <div id="drop-zone" class="drop-zone rounded-xl p-8 md:p-12 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-slate-100 text-slate-500 relative text-center">
+                        <i class="fa-solid fa-file-csv text-5xl mb-4 text-violet-300"></i>
                         <p class="font-medium text-slate-700 mb-1">Click or drag CSV file to upload</p>
                         <p class="text-xs">Only .csv files are supported</p>
                         <input type="file" id="file-input" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
@@ -337,13 +403,13 @@
                 </div>
 
                 <!-- Step 2: Mapper -->
-                <div id="upload-step-2" class="hidden bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                <div id="upload-step-2" class="hidden bg-white rounded-xl shadow-sm border border-slate-100 p-4 md:p-6">
                     <div class="flex justify-between items-center mb-6 border-b pb-4">
                         <h3 class="text-lg font-bold text-slate-800">Map CSV Columns</h3>
                         <button onclick="resetUpload()" class="text-sm text-slate-500 hover:text-red-500">Cancel</button>
                     </div>
                     
-                    <p class="text-sm text-slate-600 mb-4 bg-blue-50 p-3 rounded text-blue-800 border border-blue-100">
+                    <p class="text-sm text-slate-600 mb-4 bg-violet-50 p-3 rounded text-violet-800 border border-violet-100">
                         <i class="fa-solid fa-robot"></i> The system attempted to auto-map your fields. Please verify before importing.
                     </p>
 
@@ -352,26 +418,195 @@
                     </div>
 
                     <div class="flex justify-end">
-                        <button onclick="processImport()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg shadow-md font-bold flex items-center gap-2 transition">
+                        <button onclick="processImport()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg shadow-md font-bold flex items-center gap-2 transition w-full md:w-auto justify-center">
                             <i class="fa-solid fa-wand-magic-sparkles"></i> Process & Import Leads
                         </button>
                     </div>
                 </div>
             </div>
 
+            <!-- 4. BACKUP VIEW -->
+            <div id="view-backup" class="hidden-view fade-in max-w-4xl mx-auto">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800">Data Backup & Sync</h2>
+                    <p class="text-slate-500 text-sm">Download your CRM data locally or sync it securely to your Google Drive.</p>
+                </div>
+
+                <!-- Local Backup -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 md:p-6 mb-6">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="fa-solid fa-download text-violet-500"></i> Local Backup (Manual)</h3>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button onclick="exportData('json')" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-lg shadow-sm font-medium flex items-center justify-center gap-2 transition flex-1">
+                            <i class="fa-solid fa-code"></i> Download Full Backup (.json)
+                        </button>
+                        <button onclick="exportData('csv')" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-5 py-2.5 rounded-lg shadow-sm font-medium flex items-center justify-center gap-2 transition flex-1">
+                            <i class="fa-solid fa-file-csv"></i> Export Leads (.csv)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Google Drive Sync -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 md:p-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-start mb-6 gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i class="fa-brands fa-google-drive text-violet-500"></i> Google Drive Integration</h3>
+                            <p class="text-sm text-slate-500 mt-1">Connect your Google account to enable 1-click cloud backups and automated daily syncs.</p>
+                        </div>
+                        <div id="gdrive-status" class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold flex items-center gap-1 border border-slate-200 whitespace-nowrap shrink-0">
+                            <i class="fa-solid fa-circle-xmark"></i> Not Connected
+                        </div>
+                    </div>
+
+                    <!-- Config details -->
+                    <details class="mb-6 group bg-slate-50 border border-slate-200 rounded-lg">
+                        <summary class="p-4 cursor-pointer font-bold text-sm text-slate-700 select-none flex items-center justify-between">
+                            <span><i class="fa-solid fa-gear mr-2"></i> Developer Configuration (Required)</span>
+                            <i class="fa-solid fa-chevron-down group-open:rotate-180 transition"></i>
+                        </summary>
+                        <div class="p-4 pt-0 border-t border-slate-200 mt-2 space-y-4">
+                            
+                            <!-- Instructions -->
+                            <div class="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
+                                <p class="text-sm font-bold text-blue-800 mb-2"><i class="fa-solid fa-circle-info"></i> How to Configure Google Drive API</p>
+                                <ol class="text-xs text-blue-700 list-decimal pl-4 space-y-1.5">
+                                    <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" class="underline font-bold">Google Cloud Console</a> and create a new project.</li>
+                                    <li>Enable the <strong>Google Drive API</strong> in "APIs & Services > Library".</li>
+                                    <li>Go to "Credentials" and click "Create Credentials" > <strong>API Key</strong>.</li>
+                                    <li>Click "Create Credentials" > <strong>OAuth client ID</strong>.</li>
+                                    <li>Select "Web application" as the Application type.</li>
+                                    <li>Under <strong>Authorized JavaScript origins</strong>, add this exact URL: 
+                                        <code class="bg-white px-1 py-0.5 rounded border border-blue-200 font-mono text-blue-900 select-all"><script>document.write(window.location.origin)</script></code>
+                                    </li>
+                                    <li>Click Save. Copy the generated Client ID and API Key below.</li>
+                                </ol>
+                            </div>
+
+                            <!-- Saved Configs -->
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-500 uppercase">Select Active Configuration</label>
+                                <div class="flex gap-2 mt-1">
+                                    <select id="sel-g-config" class="flex-1 p-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-violet-500 outline-none" onchange="changeActiveGoogleConfig()">
+                                        <!-- Options generated by JS -->
+                                    </select>
+                                    <button onclick="deleteActiveGoogleConfig()" class="bg-red-50 text-red-500 px-3 rounded border border-red-100 hover:bg-red-100 transition" title="Delete Selected Config"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+
+                            <hr class="border-slate-200 my-4">
+
+                            <!-- Add New Config -->
+                            <h4 class="text-sm font-bold text-slate-700">Add New Configuration</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="col-span-1 md:col-span-2">
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Profile Name</label>
+                                    <input type="text" id="inp-g-name" class="w-full p-2 border border-slate-200 rounded text-sm mt-1 focus:ring-2 focus:ring-violet-500 outline-none" placeholder="e.g. Main Workspace Account">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Google Client ID</label>
+                                    <input type="text" id="inp-g-client" class="w-full p-2 border border-slate-200 rounded text-sm mt-1 focus:ring-2 focus:ring-violet-500 outline-none" placeholder="Paste your OAuth Client ID">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Google API Key</label>
+                                    <input type="text" id="inp-g-api" class="w-full p-2 border border-slate-200 rounded text-sm mt-1 focus:ring-2 focus:ring-violet-500 outline-none" placeholder="Paste your API Key">
+                                </div>
+                            </div>
+                            <button onclick="saveGoogleConfig()" class="mt-2 w-full md:w-auto bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold px-5 py-2.5 rounded shadow-sm transition">Save & Activate</button>
+                        </div>
+                    </details>
+
+                    <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
+                        <button id="btn-g-connect" onclick="handleAuthClick()" class="w-full md:w-auto justify-center bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-lg shadow-sm font-medium flex items-center gap-2 transition">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Connect & Backup to Drive
+                        </button>
+                        
+                        <div class="flex items-center gap-3">
+                            <label class="switch">
+                                <input type="checkbox" id="chk-auto-backup" onchange="toggleAutoBackup()">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="text-sm font-bold text-slate-700">Daily Auto-Backup</span>
+                        </div>
+                    </div>
+                    <p id="lbl-last-backup" class="text-xs text-slate-400 mt-4 italic">Last Cloud Backup: Never</p>
+                </div>
+            </div>
+
         </div>
+        
+        <!-- HOVERING TO-DO WIDGET (Agent Hub) -->
+        <div id="agent-widget" class="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-[90] flex flex-col items-end transition-all">
+            <!-- Panel -->
+            <div id="widget-panel" class="hidden opacity-0 transform translate-y-4 transition-all duration-300 bg-white w-[calc(100vw-2rem)] md:w-80 rounded-2xl shadow-2xl border border-slate-200 absolute bottom-16 right-0 overflow-hidden flex flex-col z-20">
+                <div class="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white p-4 font-bold flex justify-between items-center">
+                    <span><i class="fa-solid fa-bolt mr-2"></i> Daily Agent Hub</span>
+                    <button onclick="toggleWidget()" class="text-white hover:text-gray-200"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-500 uppercase mb-2">Daily Top 5 To-Do</h4>
+                        <div class="space-y-2" id="widget-todos">
+                            <!-- Checkboxes generated by JS -->
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-500 uppercase mb-2 flex justify-between">
+                            <span>Quick Notepad</span>
+                            <span id="widget-save-indicator" class="text-emerald-500 hidden"><i class="fa-solid fa-check"></i></span>
+                        </h4>
+                        <textarea id="widget-notepad" oninput="saveWidgetNotepad(this.value)" class="w-full h-32 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-yellow-400" placeholder="Jot down quick thoughts (auto-saves)..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <!-- Toggle Button -->
+            <button onclick="toggleWidget()" class="bg-violet-600 hover:bg-fuchsia-600 text-white w-14 h-14 rounded-full shadow-[0_10px_25px_-5px_rgba(124,58,237,0.5)] flex items-center justify-center text-2xl z-10 transition-transform transform hover:scale-105">
+                <i class="fa-solid fa-clipboard-list"></i>
+            </button>
+        </div>
+
     </main>
 
-    <!-- LEAD DETAIL MODAL OVERLAY -->
-    <div id="lead-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4" onclick="if(event.target === this) closeLeadModal()">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden fade-in relative">
-            <button onclick="closeLeadModal()" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-600 transition z-20">
-                <i class="fa-solid fa-times"></i>
-            </button>
+    <!-- LEAD DETAIL MODAL OVERLAY (Bottom Sheet on Mobile, Centered Modal on Desktop) -->
+    <div id="lead-modal" class="fixed inset-0 hidden z-[100] transition-opacity">
+        
+        <!-- Explicit Backdrop for bulletproof click-to-close -->
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-pointer" onclick="closeLeadModal()"></div>
+
+        <!-- Pointer Events None wrapper to perfectly center the modal without blocking backdrop clicks -->
+        <div class="absolute inset-0 flex items-end md:items-center justify-center sm:p-4 pointer-events-none">
             
-            <div class="flex-1 overflow-y-auto" id="lead-modal-content">
-                <!-- Injected via JS -->
+            <!-- Large Nav Buttons (Desktop only to prevent mobile overlap) -->
+            <button onclick="navigateLead(-1)" class="pointer-events-auto fixed left-2 md:left-6 top-1/2 transform -translate-y-1/2 w-10 h-20 md:w-16 md:h-32 bg-white/10 hover:bg-white/30 text-white rounded-2xl hidden md:flex items-center justify-center text-2xl md:text-5xl transition backdrop-blur z-[101]">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <button onclick="navigateLead(1)" class="pointer-events-auto fixed right-2 md:right-6 top-1/2 transform -translate-y-1/2 w-10 h-20 md:w-16 md:h-32 bg-white/10 hover:bg-white/30 text-white rounded-2xl hidden md:flex items-center justify-center text-2xl md:text-5xl transition backdrop-blur z-[101]">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+
+            <!-- The Modal Box -->
+            <div class="pointer-events-auto bg-white w-full h-[92vh] md:h-auto md:max-h-[90vh] md:max-w-5xl flex flex-col overflow-hidden relative z-[102] rounded-t-3xl md:rounded-2xl shadow-2xl animate-slide-up md:animate-fade">
+                
+                <!-- Sticky App-like Header -->
+                <div class="bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center shrink-0 sticky top-0 z-20 shadow-sm">
+                    <div class="flex items-center gap-1 md:gap-2">
+                        <button onclick="navigateLead(-1)" class="w-10 h-10 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 transition md:hidden" title="Previous Lead">
+                            <i class="fa-solid fa-chevron-left text-lg"></i>
+                        </button>
+                        <button onclick="navigateLead(1)" class="w-10 h-10 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 transition md:hidden" title="Next Lead">
+                            <i class="fa-solid fa-chevron-right text-lg"></i>
+                        </button>
+                    </div>
+                    <div class="font-bold text-slate-800 text-sm md:text-base truncate px-2 text-center" id="modal-header-title">Lead Details</div>
+                    <button onclick="closeLeadModal()" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-600 transition shadow-sm">
+                        <i class="fa-solid fa-times text-lg"></i>
+                    </button>
+                </div>
+                
+                <!-- Scrollable Content -->
+                <div class="flex-1 overflow-y-auto bg-slate-50" id="lead-modal-content">
+                    <!-- Injected via JS -->
+                </div>
             </div>
+            
         </div>
     </div>
 
@@ -386,8 +621,55 @@
         const STORAGE_KEY = 'ownit_crm_data_v1';
         let state = {
             leads: [],
-            targetCity: 'San Francisco'
+            targetCity: 'San Francisco',
+            lastDriveBackup: null,
+            autoBackup: false,
+            googleConfigs: [],
+            activeGoogleConfigId: null,
+            widget: {
+                date: new Date().toISOString().split('T')[0],
+                todos: [
+                    { text: 'Review 10 New Leads', done: false },
+                    { text: 'Follow up on Warm Leads', done: false },
+                    { text: 'Send Pending Proposals', done: false },
+                    { text: 'Clear Overdue Activities', done: false },
+                    { text: 'Update CRM Notes', done: false }
+                ],
+                notepad: ''
+            }
         };
+
+        let currentActiveLeadId = null;
+        window.currentLeadViewIds = []; // Keeps track of currently filtered/sorted leads
+
+        // Master list of Workflow Statuses
+        const WORKFLOW_STATUSES = [
+            'New Lead', 'Contacted', 'Voice Mail', 'Gatekeeper', 'Call Back',
+            'Interested', 'Not Interested', 'Follow-Up', 'Meeting Booked',
+            'No Show', 'Proposal Sent', 'Negotiation', 'Won', 'Lost'
+        ];
+
+        // Status Colors mapping
+        const STATUS_COLORS = {
+            'New Lead': 'bg-blue-100 text-blue-800',
+            'Contacted': 'bg-yellow-100 text-yellow-800',
+            'Voice Mail': 'bg-gray-100 text-gray-800',
+            'Gatekeeper': 'bg-orange-100 text-orange-800',
+            'Call Back': 'bg-teal-100 text-teal-800',
+            'Interested': 'bg-green-100 text-green-800',
+            'Not Interested': 'bg-red-100 text-red-800',
+            'Follow-Up': 'bg-indigo-100 text-indigo-800',
+            'Meeting Booked': 'bg-purple-100 text-purple-800',
+            'No Show': 'bg-rose-100 text-rose-800',
+            'Proposal Sent': 'bg-cyan-100 text-cyan-800',
+            'Negotiation': 'bg-amber-100 text-amber-800',
+            'Won': 'bg-emerald-100 text-emerald-800',
+            'Lost': 'bg-slate-200 text-slate-800'
+        };
+
+        function getStatusColorClass(status) {
+            return STATUS_COLORS[status] || 'bg-slate-100 text-slate-800';
+        }
 
         // Standard Fields expected by our CRM
         const CRM_FIELDS = [
@@ -402,7 +684,7 @@
             { key: 'rating', label: 'Rating (1-5)' },
             { key: 'reviews', label: 'Total Reviews' },
             { key: 'appointment', label: 'Appointment Date/Time' },
-            { key: 'followUp', label: 'Follow-up Date/Time' }, // New Field
+            { key: 'followUp', label: 'Follow-up Date/Time' }, 
             { key: 'mapsUrl', label: 'Google Maps URL' },
             { key: 'notes', label: 'Sales Note' }
         ];
@@ -411,27 +693,104 @@
         let rawCSVHeaders = [];
         let rawCSVRows = [];
 
+        // Google API State
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        // Escape key to close modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !document.getElementById('lead-modal').classList.contains('hidden')) {
+                closeLeadModal();
+            }
+        });
+
         // --- 2. INITIALIZATION ---
         function init() {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 try {
-                    state = JSON.parse(saved);
-                    // Ensure backward compatibility
+                    const parsed = JSON.parse(saved);
+                    state = { ...state, ...parsed }; // Merge to preserve new schema fields
                     if(!state.leads) state.leads = [];
+                    
+                    // Normalize legacy statuses to New Lead if they don't match the new master list
+                    state.leads.forEach(l => {
+                        if (!WORKFLOW_STATUSES.includes(l.workflowStatus)) {
+                            l.workflowStatus = 'New Lead';
+                        }
+                    });
+                    
+                    // Initialize widget if missing from old state
+                    if(!state.widget) {
+                        state.widget = {
+                            date: new Date().toISOString().split('T')[0],
+                            todos: [
+                                { text: 'Review 10 New Leads', done: false },
+                                { text: 'Follow up on Warm Leads', done: false },
+                                { text: 'Send Pending Proposals', done: false },
+                                { text: 'Clear Overdue Activities', done: false },
+                                { text: 'Update CRM Notes', done: false }
+                            ],
+                            notepad: ''
+                        };
+                    }
                 } catch(e) { console.error("Data load error", e); }
             }
+
+            // Daily reset for To-Do widget
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (state.widget && state.widget.date !== todayStr) {
+                state.widget.date = todayStr;
+                state.widget.todos.forEach(t => t.done = false);
+            }
+
+            // Migrate legacy Google Configs
+            const oldCid = localStorage.getItem('gapi_client_id');
+            const oldKey = localStorage.getItem('gapi_api_key');
+            if (oldCid && (!state.googleConfigs || state.googleConfigs.length === 0)) {
+                const newConfId = generateId();
+                state.googleConfigs = [{ id: newConfId, name: 'Default Config', clientId: oldCid, apiKey: oldKey }];
+                state.activeGoogleConfigId = newConfId;
+                localStorage.removeItem('gapi_client_id');
+                localStorage.removeItem('gapi_api_key');
+                saveData();
+            }
+            if(!state.googleConfigs) state.googleConfigs = [];
             
-            document.getElementById('inp-target-city').value = state.targetCity || 'San Francisco';
+            if(document.getElementById('inp-target-city')) {
+                document.getElementById('inp-target-city').value = state.targetCity || 'San Francisco';
+            }
+            if(document.getElementById('chk-auto-backup')) {
+                document.getElementById('chk-auto-backup').checked = state.autoBackup || false;
+            }
+            
+            renderGoogleConfigs();
+            updateBackupLabels();
             setupDragAndDrop();
+            initGoogleAPI();
             renderDashboard(); // Default view
+            renderWidget();
+        }
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
         }
 
         function saveData() {
-            state.targetCity = document.getElementById('inp-target-city').value.trim() || 'San Francisco';
+            const cityInput = document.getElementById('inp-target-city');
+            if(cityInput) {
+                state.targetCity = cityInput.value.trim() || 'San Francisco';
+            }
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            renderDashboard(); // Keep metrics updated
-            if(!document.getElementById('view-calendar').classList.contains('hidden-view')) renderCalendar();
+            
+            const vDash = document.getElementById('view-dashboard');
+            const vCal = document.getElementById('view-calendar');
+            const vCamp = document.getElementById('view-campaigns');
+            
+            if(vDash && !vDash.classList.contains('hidden-view')) renderDashboard(); 
+            if(vCal && !vCal.classList.contains('hidden-view')) renderCalendar();
+            if(vCamp && !vCamp.classList.contains('hidden-view')) renderCampaigns();
         }
 
         function wipeData() {
@@ -442,29 +801,119 @@
             }
         }
 
-        // --- 3. NAVIGATION ---
+        // --- AGENT WIDGET LOGIC ---
+        function toggleWidget() {
+            const panel = document.getElementById('widget-panel');
+            if(panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                // slight delay to allow display:block to apply before animating opacity
+                setTimeout(() => {
+                    panel.classList.remove('opacity-0', 'translate-y-4');
+                }, 10);
+            } else {
+                panel.classList.add('opacity-0', 'translate-y-4');
+                setTimeout(() => {
+                    panel.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        function renderWidget() {
+            const todoContainer = document.getElementById('widget-todos');
+            if(!todoContainer) return;
+            todoContainer.innerHTML = state.widget.todos.map((t, idx) => `
+                <label class="flex items-center gap-3 p-2 rounded hover:bg-slate-50 cursor-pointer transition border border-transparent hover:border-slate-100">
+                    <input type="checkbox" class="w-4 h-4 text-violet-600 rounded border-slate-300 focus:ring-violet-500" ${t.done ? 'checked' : ''} onchange="toggleTodo(${idx}, this.checked)">
+                    <span class="text-sm ${t.done ? 'line-through text-slate-400' : 'text-slate-700 font-medium'}">${t.text}</span>
+                </label>
+            `).join('');
+
+            const notepad = document.getElementById('widget-notepad');
+            if(notepad && document.activeElement !== notepad) {
+                notepad.value = state.widget.notepad || '';
+            }
+        }
+
+        function toggleTodo(idx, isChecked) {
+            state.widget.todos[idx].done = isChecked;
+            saveData();
+            renderWidget();
+        }
+
+        let notepadTimeout;
+        function saveWidgetNotepad(text) {
+            state.widget.notepad = text;
+            clearTimeout(notepadTimeout);
+            notepadTimeout = setTimeout(() => {
+                saveData();
+                const ind = document.getElementById('widget-save-indicator');
+                if(ind) {
+                    ind.classList.remove('hidden');
+                    setTimeout(() => ind.classList.add('hidden'), 2000);
+                }
+            }, 500);
+        }
+
+        // --- 3. NAVIGATION & UI TOGGLES ---
         function switchView(viewName) {
             // Hide all
-            document.getElementById('view-dashboard').classList.add('hidden-view');
-            document.getElementById('view-leads').classList.add('hidden-view');
-            document.getElementById('view-calendar').classList.add('hidden-view');
-            document.getElementById('view-upload').classList.add('hidden-view');
+            ['dashboard', 'leads', 'calendar', 'upload', 'campaigns', 'backup'].forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if(el) el.classList.add('hidden-view');
+            });
             
             // Show target
-            document.getElementById(`view-${viewName}`).classList.remove('hidden-view');
+            const targetEl = document.getElementById(`view-${viewName}`);
+            if(targetEl) targetEl.classList.remove('hidden-view');
             
             // Update sidebar UI
             document.querySelectorAll('aside nav button').forEach(b => {
-                b.className = 'w-full flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition font-medium';
+                b.className = 'w-full flex items-center gap-3 p-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition font-medium group';
             });
-            document.getElementById(`nav-${viewName}`).className = 'w-full flex items-center gap-3 p-3 rounded-lg bg-blue-600 text-white transition font-medium shadow-md';
+            const activeBtn = document.getElementById(`nav-${viewName}`);
+            if(activeBtn) {
+                activeBtn.className = 'w-full flex items-center gap-3 p-3 rounded-lg bg-white/20 text-white transition font-medium shadow-md group';
+            }
 
             // Trigger specific render logic
             if (viewName === 'dashboard') renderDashboard();
             if (viewName === 'calendar') renderCalendar();
+            if (viewName === 'campaigns') renderCampaigns();
             if (viewName === 'leads') {
                 populateFilterOptions();
-                filterLeads(); // Renders table based on current filters
+                filterLeads(); 
+            }
+
+            // Auto-close sidebar on mobile when navigating
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar && window.innerWidth < 768 && !sidebar.classList.contains('hidden')) {
+                toggleSidebar();
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            sidebar.classList.toggle('hidden');
+            sidebar.classList.toggle('flex');
+            sidebar.classList.add('absolute', 'h-full', 'z-50');
+        }
+
+        function toggleSidebarDesktop() {
+            const sidebar = document.getElementById('sidebar');
+            const navTexts = document.querySelectorAll('.nav-text');
+            const logoText = document.getElementById('logo-text');
+
+            if (!sidebar) return;
+
+            if (sidebar.classList.contains('w-64')) {
+                sidebar.classList.replace('w-64', 'w-[4.5rem]');
+                navTexts.forEach(el => el.classList.add('hidden'));
+                if(logoText) logoText.classList.add('opacity-0', 'w-0');
+            } else {
+                sidebar.classList.replace('w-[4.5rem]', 'w-64');
+                navTexts.forEach(el => el.classList.remove('hidden'));
+                if(logoText) logoText.classList.remove('opacity-0', 'w-0');
             }
         }
 
@@ -474,17 +923,37 @@
             const apptSelect = document.getElementById('filter-appt');
             const searchInput = document.getElementById('search-input');
             const citySelect = document.getElementById('filter-city');
+            const campSelect = document.getElementById('filter-campaign');
 
-            // Reset
-            tempSelect.value = '';
-            apptSelect.value = '';
-            searchInput.value = '';
-            citySelect.value = '';
+            // Reset safely
+            if(tempSelect) tempSelect.value = '';
+            if(apptSelect) apptSelect.value = '';
+            if(searchInput) searchInput.value = '';
+            if(citySelect) citySelect.value = '';
+            if(campSelect) campSelect.value = '';
 
             // Apply specific
-            if (filterType === 'HOT') tempSelect.value = 'HOT';
-            if (filterType === 'APPT') apptSelect.value = 'yes';
+            if (filterType === 'HOT' && tempSelect) tempSelect.value = 'HOT';
+            if (filterType === 'APPT' && apptSelect) apptSelect.value = 'yes';
             
+            filterLeads();
+        }
+
+        function filterFromCampaign(campaignName) {
+            switchView('leads');
+            const campSelect = document.getElementById('filter-campaign');
+            if(campSelect) {
+                campSelect.value = campaignName;
+                filterLeads();
+            }
+        }
+
+        function resetFilters() {
+            if(document.getElementById('filter-temp')) document.getElementById('filter-temp').value = '';
+            if(document.getElementById('filter-appt')) document.getElementById('filter-appt').value = '';
+            if(document.getElementById('search-input')) document.getElementById('search-input').value = '';
+            if(document.getElementById('filter-city')) document.getElementById('filter-city').value = '';
+            if(document.getElementById('filter-campaign')) document.getElementById('filter-campaign').value = '';
             filterLeads();
         }
 
@@ -499,15 +968,10 @@
             let arrMatches = null;
             while (arrMatches = objPattern.exec(strData)) {
                 let strMatchedDelimiter = arrMatches[1];
-                if (strMatchedDelimiter.length && strMatchedDelimiter !== strDelimiter) {
-                    arrData.push([]);
-                }
+                if (strMatchedDelimiter.length && strMatchedDelimiter !== strDelimiter) arrData.push([]);
                 let strMatchedValue;
-                if (arrMatches[2]) {
-                    strMatchedValue = arrMatches[2].replace(new RegExp("\"\"", "g"), "\"");
-                } else {
-                    strMatchedValue = arrMatches[3];
-                }
+                if (arrMatches[2]) strMatchedValue = arrMatches[2].replace(new RegExp("\"\"", "g"), "\"");
+                else strMatchedValue = arrMatches[3];
                 arrData[arrData.length - 1].push(strMatchedValue);
             }
             return arrData.filter(row => row.length > 1 || (row.length === 1 && row[0].trim() !== ''));
@@ -517,6 +981,7 @@
         function setupDragAndDrop() {
             const dropZone = document.getElementById('drop-zone');
             const fileInput = document.getElementById('file-input');
+            if(!dropZone || !fileInput) return;
 
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 dropZone.addEventListener(eventName, preventDefaults, false);
@@ -534,8 +999,7 @@
 
             dropZone.addEventListener('drop', (e) => {
                 let dt = e.dataTransfer;
-                let files = dt.files;
-                handleFiles(files);
+                handleFiles(dt.files);
             });
 
             fileInput.addEventListener('change', function() {
@@ -546,10 +1010,11 @@
         function handleFiles(files) {
             if (!files.length) return;
             const file = files[0];
-            if (!file.name.endsWith('.csv')) {
-                alert('Please upload a valid .csv file.');
-                return;
-            }
+            if (!file.name.endsWith('.csv')) return alert('Please upload a valid .csv file.');
+
+            const campaignNameInput = document.getElementById('inp-campaign-name');
+            const campaignName = campaignNameInput ? campaignNameInput.value.trim() : 'Default Campaign';
+            if(!campaignName) return alert('Please enter a Campaign Name before uploading.');
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -567,11 +1032,13 @@
         }
 
         function showMappingUI() {
-            document.getElementById('upload-step-1').classList.add('hidden');
-            document.getElementById('upload-step-2').classList.remove('hidden');
-
+            const s1 = document.getElementById('upload-step-1');
+            const s2 = document.getElementById('upload-step-2');
             const container = document.getElementById('mapping-container');
-            container.innerHTML = '';
+            
+            if(s1) s1.classList.add('hidden');
+            if(s2) s2.classList.remove('hidden');
+            if(container) container.innerHTML = '';
 
             CRM_FIELDS.forEach(field => {
                 const wrapper = document.createElement('div');
@@ -582,7 +1049,7 @@
                 label.innerText = field.label + (field.required ? ' *' : '');
 
                 const select = document.createElement('select');
-                select.className = 'p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none';
+                select.className = 'p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 outline-none';
                 select.id = `map_${field.key}`;
 
                 let optionsHTML = `<option value="">-- Ignore this field --</option>`;
@@ -604,14 +1071,17 @@
 
                 wrapper.appendChild(label);
                 wrapper.appendChild(select);
-                container.appendChild(wrapper);
+                if(container) container.appendChild(wrapper);
             });
         }
 
         function resetUpload() {
-            document.getElementById('file-input').value = '';
-            document.getElementById('upload-step-2').classList.add('hidden');
-            document.getElementById('upload-step-1').classList.remove('hidden');
+            const fi = document.getElementById('file-input');
+            if(fi) fi.value = '';
+            const s2 = document.getElementById('upload-step-2');
+            if(s2) s2.classList.add('hidden');
+            const s1 = document.getElementById('upload-step-1');
+            if(s1) s1.classList.remove('hidden');
             rawCSVHeaders = [];
             rawCSVRows = [];
         }
@@ -629,7 +1099,8 @@
 
         function calculateScore(lead) {
             let score = 0;
-            const targetCity = document.getElementById('inp-target-city').value.trim().toLowerCase();
+            const targetCityInput = document.getElementById('inp-target-city');
+            const targetCity = targetCityInput ? targetCityInput.value.trim().toLowerCase() : '';
 
             const rating = parseFloat(lead.rating);
             const reviews = parseInt(lead.reviews, 10);
@@ -655,14 +1126,22 @@
 
         function processImport() {
             const mapping = {};
+            let isMissingRequired = false;
+            
             CRM_FIELDS.forEach(f => {
-                const val = document.getElementById(`map_${f.key}`).value;
-                if (val !== '') mapping[f.key] = parseInt(val, 10);
+                const el = document.getElementById(`map_${f.key}`);
+                if(el) {
+                    const val = el.value;
+                    if (val !== '') mapping[f.key] = parseInt(val, 10);
+                }
             });
 
             if (mapping['ownerName'] === undefined || mapping['businessName'] === undefined) {
                 return alert("Owner Name and Business Name are required fields to map.");
             }
+
+            const cNameInput = document.getElementById('inp-campaign-name');
+            const campaignName = cNameInput ? cNameInput.value.trim() : 'Default Campaign';
 
             let newCount = 0;
             let duplicateCount = 0;
@@ -671,7 +1150,8 @@
                 let lead = { 
                     id: 'ld_' + Date.now() + Math.random().toString(36).substr(2, 9),
                     dealValue: 0,
-                    probability: 10
+                    probability: 10,
+                    campaign: campaignName
                 };
                 
                 for (const [key, colIdx] of Object.entries(mapping)) {
@@ -682,7 +1162,6 @@
                 lead.phone = cleanPhone(lead.phone);
                 if (lead.email && !isValidEmail(lead.email)) lead.email = '';
 
-                // Transform legacy dates if imported
                 if (lead.appointment) lead.appointment = tryFormatDateForInput(lead.appointment);
                 if (lead.followUp) lead.followUp = tryFormatDateForInput(lead.followUp);
 
@@ -712,16 +1191,14 @@
             switchView('leads');
         }
 
-        // --- UTILS FOR SMART SCHEDULING ---
+        // --- UTILS FOR FORMATTING & DATES ---
         const formatMoney = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
         
-        // Formats a JS Date to "YYYY-MM-DDThh:mm" for <input type="datetime-local">
         function toDatetimeLocal(date) {
             const pad = (n) => n.toString().padStart(2, '0');
             return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
         }
 
-        // Display friendly date
         function formatDisplayDate(dateStr) {
             if (!dateStr) return '';
             const d = new Date(dateStr);
@@ -729,7 +1206,6 @@
             return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(d);
         }
 
-        // Try to parse legacy CSV dates into standard ISO
         function tryFormatDateForInput(str) {
             if(!str) return '';
             const d = new Date(str);
@@ -741,41 +1217,45 @@
             if(!apptString || apptString.trim() === '') return { status: 'none', color: 'text-slate-300', bg: '' };
             
             const apptDate = new Date(apptString);
-            if(isNaN(apptDate)) return { status: 'upcoming', color: 'text-blue-700', bg: 'bg-blue-100' };
+            if(isNaN(apptDate)) return { status: 'upcoming', color: 'text-violet-700', bg: 'bg-violet-100' };
 
             const today = new Date();
             const apptDay = new Date(apptDate);
             
-            // Normalize to start of day for accurate categorization
             const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
             const a0 = new Date(apptDay.getFullYear(), apptDay.getMonth(), apptDay.getDate()).getTime();
 
             if(a0 < t0) return { status: 'overdue', color: 'text-red-700', bg: 'bg-red-100 border border-red-200' };
             if(a0 === t0) return { status: 'today', color: 'text-emerald-700', bg: 'bg-emerald-100 border border-emerald-200 shadow-sm' };
             
-            return { status: 'upcoming', color: 'text-purple-700', bg: 'bg-purple-100' };
+            return { status: 'upcoming', color: 'text-violet-700', bg: 'bg-violet-100' };
         }
 
         // --- 7. DASHBOARD RENDERER ---
         function renderDashboard() {
             const leads = state.leads;
             
-            document.getElementById('kpi-total').innerText = leads.length;
+            const totalEl = document.getElementById('kpi-total');
+            if(totalEl) totalEl.innerText = leads.length;
             
             const hotCount = leads.filter(l => l.temperature === 'HOT').length;
-            document.getElementById('kpi-hot').innerText = hotCount;
+            const hotEl = document.getElementById('kpi-hot');
+            if(hotEl) hotEl.innerText = hotCount;
 
             const apptCount = leads.filter(l => l.appointment && l.appointment.trim() !== '').length;
-            document.getElementById('kpi-appointments').innerText = apptCount;
+            const apptEl = document.getElementById('kpi-appointments');
+            if(apptEl) apptEl.innerText = apptCount;
 
             const conv = leads.length > 0 ? Math.round((apptCount / leads.length) * 100) : 0;
-            document.getElementById('kpi-conversion').innerText = conv + '%';
+            const convEl = document.getElementById('kpi-conversion'); 
+            if (convEl) convEl.innerText = conv + '%';
 
             let totalExpectedRev = 0;
             leads.forEach(l => {
                 totalExpectedRev += ((l.dealValue || 0) * (l.probability || 0)) / 100;
             });
-            document.getElementById('kpi-revenue').innerText = formatMoney(totalExpectedRev);
+            const revEl = document.getElementById('kpi-revenue');
+            if(revEl) revEl.innerText = formatMoney(totalExpectedRev);
 
             const temps = { HOT: 0, WARM: 0, COLD: 0 };
             leads.forEach(l => temps[l.temperature] = (temps[l.temperature] || 0) + 1);
@@ -793,14 +1273,14 @@
             }).join('');
             
             const chartEl = document.getElementById('status-chart');
-            if(chartEl) {
-                chartEl.innerHTML = chartHtml;
-            }
+            if(chartEl) chartEl.innerHTML = chartHtml;
 
             const recentHot = leads.filter(l => l.temperature === 'HOT')
                                    .sort((a,b) => b.score - a.score)
                                    .slice(0, 5);
             
+            window.currentLeadViewIds = recentHot.map(l => l.id);
+
             const tbody = document.getElementById('dashboard-recent-hot');
             if(tbody) {
                 if (recentHot.length === 0) {
@@ -812,12 +1292,12 @@
                         const mailLink = lead.email ? `mailto:${lead.email}` : null;
                         
                         return `
-                            <tr class="border-b border-slate-50 last:border-0 hover:bg-slate-50 cursor-pointer group" onclick="openLeadModal('${lead.id}')">
-                                <td class="p-4 font-bold text-slate-800">${lead.businessName}</td>
-                                <td class="p-4 text-slate-600">${lead.ownerName}</td>
-                                <td class="p-4"><span class="badge-hot px-2 py-1 rounded text-xs font-bold">${lead.score} pts</span></td>
-                                <td class="p-4 text-slate-500">${lead.city || '-'}</td>
-                                <td class="p-4 text-right">
+                            <tr class="border-b border-slate-50 last:border-0 hover:bg-violet-50 cursor-pointer group" onclick="openLeadModal('${lead.id}')">
+                                <td class="p-4 font-bold text-slate-800 whitespace-nowrap">${lead.businessName}</td>
+                                <td class="p-4 text-slate-600 whitespace-nowrap">${lead.ownerName}</td>
+                                <td class="p-4 whitespace-nowrap"><span class="badge-hot px-2 py-1 rounded text-xs font-bold">${lead.score} pts</span></td>
+                                <td class="p-4 text-slate-500 whitespace-nowrap">${lead.city || '-'}</td>
+                                <td class="p-4 whitespace-nowrap text-right">
                                     <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         ${waLink ? `<button onclick="event.stopPropagation(); window.open('${waLink}', '_blank')" class="w-8 h-8 rounded bg-green-50 text-green-600 hover:bg-green-500 hover:text-white transition shadow-sm" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}
                                         ${telLink ? `<button onclick="event.stopPropagation(); window.location.href='${telLink}'" class="w-8 h-8 rounded bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition shadow-sm" title="Call"><i class="fa-solid fa-phone"></i></button>` : ''}
@@ -835,15 +1315,29 @@
         function populateFilterOptions() {
             const cities = [...new Set(state.leads.map(l => l.city).filter(c => c))].sort();
             const cityFilter = document.getElementById('filter-city');
-            cityFilter.innerHTML = '<option value="">All Cities</option>' + 
-                cities.map(c => `<option value="${c}">${c}</option>`).join('');
+            if(cityFilter) {
+                cityFilter.innerHTML = '<option value="">All Cities</option>' + cities.map(c => `<option value="${c}">${c}</option>`).join('');
+            }
+
+            const campaigns = [...new Set(state.leads.map(l => l.campaign).filter(c => c))].sort();
+            const campFilter = document.getElementById('filter-campaign');
+            if(campFilter) {
+                campFilter.innerHTML = '<option value="">All Campaigns</option>' + campaigns.map(c => `<option value="${c}">${c}</option>`).join('');
+            }
         }
 
         function filterLeads() {
-            const q = document.getElementById('search-input').value.toLowerCase();
-            const temp = document.getElementById('filter-temp').value;
-            const city = document.getElementById('filter-city').value;
-            const appt = document.getElementById('filter-appt').value;
+            const qEl = document.getElementById('search-input');
+            const tempEl = document.getElementById('filter-temp');
+            const cityEl = document.getElementById('filter-city');
+            const apptEl = document.getElementById('filter-appt');
+            const campEl = document.getElementById('filter-campaign');
+
+            const q = qEl ? qEl.value.toLowerCase() : '';
+            const temp = tempEl ? tempEl.value : '';
+            const city = cityEl ? cityEl.value : '';
+            const appt = apptEl ? apptEl.value : '';
+            const camp = campEl ? campEl.value : '';
 
             const filtered = state.leads.filter(l => {
                 const mQuery = (l.ownerName||'').toLowerCase().includes(q) || 
@@ -851,12 +1345,13 @@
                                (l.whatsapp||'').includes(q);
                 const mTemp = temp ? l.temperature === temp : true;
                 const mCity = city ? l.city === city : true;
+                const mCamp = camp ? l.campaign === camp : true;
                 
                 let mAppt = true;
                 if(appt === 'yes') mAppt = (l.appointment && l.appointment.trim() !== '');
                 if(appt === 'no') mAppt = (!l.appointment || l.appointment.trim() === '');
 
-                return mQuery && mTemp && mCity && mAppt;
+                return mQuery && mTemp && mCity && mAppt && mCamp;
             });
 
             renderLeadsTable(filtered);
@@ -865,16 +1360,18 @@
         function renderLeadsTable(data) {
             const tbody = document.getElementById('leads-table-body');
             const emptyState = document.getElementById('empty-state');
+            
+            if(!tbody || !emptyState) return;
 
             if(data.length === 0) {
                 tbody.innerHTML = '';
                 emptyState.classList.remove('hidden');
+                window.currentLeadViewIds = [];
                 return;
             }
             emptyState.classList.add('hidden');
 
             data.sort((a,b) => {
-                // Priority logic: Overdue > Today > Upcoming > None
                 const aAppt = getApptStatus(a.appointment || a.followUp).status;
                 const bAppt = getApptStatus(b.appointment || b.followUp).status;
                 
@@ -886,6 +1383,8 @@
                 return b.score - a.score;
             });
 
+            window.currentLeadViewIds = data.map(l => l.id);
+
             tbody.innerHTML = data.map(lead => {
                 const badgeClass = lead.temperature === 'HOT' ? 'badge-hot' : (lead.temperature === 'WARM' ? 'badge-warm' : 'badge-cold');
                 const nextAction = lead.appointment || lead.followUp;
@@ -894,9 +1393,11 @@
                 const waLink = lead.whatsapp ? `https://wa.me/${cleanPhone(lead.whatsapp)}` : null;
                 const telLink = lead.phone ? `tel:${cleanPhone(lead.phone)}` : null;
                 const mailLink = lead.email ? `mailto:${lead.email}` : null;
+                
+                const statusOptions = WORKFLOW_STATUSES.map(opt => `<option value="${opt}" ${lead.workflowStatus === opt ? 'selected' : ''}>${opt}</option>`).join('');
 
                 return `
-                    <tr class="hover:bg-blue-50/50 transition cursor-pointer group" onclick="openLeadModal('${lead.id}')">
+                    <tr class="hover:bg-violet-50/50 transition cursor-pointer group" onclick="openLeadModal('${lead.id}')">
                         <td class="p-4">
                             <div class="font-bold text-slate-800">${lead.businessName}</div>
                             <div class="text-xs text-slate-500 mt-1 flex items-center gap-2">
@@ -905,8 +1406,14 @@
                             </div>
                         </td>
                         <td class="p-4">
-                            <div class="font-medium text-slate-700">${lead.ownerName}</div>
-                            <div class="text-xs text-slate-500 mt-0.5">${lead.whatsapp || lead.phone || lead.email || 'No contact'}</div>
+                            <div class="font-medium text-slate-700 flex items-center gap-1 group/copy w-max">
+                                ${lead.ownerName}
+                                <button onclick="event.stopPropagation(); copyText('${String(lead.ownerName || '').replace(/'/g, "\\'")}')" class="text-slate-300 hover:text-violet-600 opacity-0 group-hover/copy:opacity-100 transition" title="Copy"><i class="fa-regular fa-copy"></i></button>
+                            </div>
+                            <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-1 group/copy w-max">
+                                ${lead.whatsapp || lead.phone || lead.email || 'No contact'} 
+                                <button onclick="event.stopPropagation(); copyText('${String(lead.whatsapp || lead.phone || lead.email || '').replace(/'/g, "\\'")}')" class="text-slate-300 hover:text-violet-600 opacity-0 group-hover/copy:opacity-100 transition" title="Copy"><i class="fa-regular fa-copy"></i></button>
+                            </div>
                         </td>
                         <td class="p-4 text-center">
                             <span class="${badgeClass} px-3 py-1 rounded-full text-xs font-black tracking-wide inline-flex flex-col items-center leading-tight">
@@ -923,14 +1430,16 @@
                                 : `<span class="text-xs text-slate-300 italic">None Scheduled</span>`}
                         </td>
                         <td class="p-4">
-                            <span class="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200 whitespace-nowrap">${lead.workflowStatus}</span>
+                            <select onclick="event.stopPropagation()" onchange="updateLeadField('${lead.id}', 'workflowStatus', this.value, this)" class="text-xs font-semibold ${getStatusColorClass(lead.workflowStatus)} px-2 py-1.5 rounded border border-slate-200 outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer shadow-sm hover:border-violet-400 transition w-full min-w-[140px]">
+                                ${statusOptions}
+                            </select>
                         </td>
                         <td class="p-4 text-right">
                             <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 ${waLink ? `<button onclick="event.stopPropagation(); window.open('${waLink}', '_blank')" class="w-8 h-8 rounded bg-green-50 text-green-600 hover:bg-green-500 hover:text-white transition shadow-sm" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}
                                 ${telLink ? `<button onclick="event.stopPropagation(); window.location.href='${telLink}'" class="w-8 h-8 rounded bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition shadow-sm" title="Call"><i class="fa-solid fa-phone"></i></button>` : ''}
                                 ${mailLink ? `<button onclick="event.stopPropagation(); window.location.href='${mailLink}'" class="w-8 h-8 rounded bg-slate-100 text-slate-500 hover:bg-slate-500 hover:text-white transition shadow-sm" title="Email"><i class="fa-regular fa-envelope"></i></button>` : ''}
-                                <button class="w-8 h-8 rounded bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white transition shadow-sm border border-slate-200 ml-2" title="View Details">
+                                <button class="w-8 h-8 rounded bg-slate-50 text-slate-400 hover:bg-violet-600 hover:text-white transition shadow-sm border border-slate-200 ml-2" title="View Details">
                                     <i class="fa-solid fa-arrow-right"></i>
                                 </button>
                             </div>
@@ -945,9 +1454,11 @@
             const listOverdue = document.getElementById('agenda-overdue');
             const listToday = document.getElementById('agenda-today');
             const listUpcoming = document.getElementById('agenda-upcoming');
+            
+            if(!listOverdue || !listToday || !listUpcoming) return;
 
-            // Gather all scheduled leads
             const scheduledLeads = state.leads.filter(l => (l.appointment && l.appointment.trim() !== '') || (l.followUp && l.followUp.trim() !== ''));
+            window.currentLeadViewIds = scheduledLeads.map(l => l.id);
 
             let overdueHtml = '', todayHtml = '', upcomingHtml = '';
 
@@ -967,7 +1478,7 @@
                                 </div>
                                 <span class="text-[10px] uppercase font-bold px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200">${item.type}</span>
                             </div>
-                            <div class="text-sm font-medium ${status === 'overdue' ? 'text-red-600' : (status === 'today' ? 'text-emerald-700' : 'text-purple-600')} flex items-center gap-1.5">
+                            <div class="text-sm font-medium ${status === 'overdue' ? 'text-red-600' : (status === 'today' ? 'text-emerald-700' : 'text-violet-600')} flex items-center gap-1.5">
                                 <i class="fa-regular fa-clock"></i> ${formatDisplayDate(item.date)}
                             </div>
                         </div>
@@ -984,11 +1495,81 @@
             listUpcoming.innerHTML = upcomingHtml || '<p class="text-xs text-slate-400 italic">No upcoming actions.</p>';
         }
 
+        // --- 8.6 CAMPAIGNS RENDERER ---
+        function renderCampaigns() {
+            const container = document.getElementById('campaigns-grid');
+            if(!container) return;
+            
+            let campaignsMap = {};
+            state.leads.forEach(l => {
+                const c = l.campaign || 'Default Campaign';
+                if(!campaignsMap[c]) campaignsMap[c] = { total: 0, hot: 0, expRev: 0 };
+                campaignsMap[c].total++;
+                if(l.temperature === 'HOT') campaignsMap[c].hot++;
+                campaignsMap[c].expRev += ((l.dealValue || 0) * (l.probability || 0)) / 100;
+            });
+
+            const campaignNames = Object.keys(campaignsMap).sort();
+            
+            if(campaignNames.length === 0) {
+                container.innerHTML = '<div class="col-span-full p-8 text-center text-slate-500 bg-white rounded-lg border border-dashed border-slate-300">No campaigns found. Import leads to create a campaign.</div>';
+                return;
+            }
+
+            container.innerHTML = campaignNames.map(c => {
+                const data = campaignsMap[c];
+                return `
+                    <div onclick="filterFromCampaign('${c.replace(/'/g, "\\'")}')" class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 cursor-pointer hover:-translate-y-1 hover:shadow-md transition group border-t-4 border-t-violet-500">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="font-bold text-lg text-slate-800 group-hover:text-violet-600 transition">${c}</h3>
+                            <button class="text-slate-400 hover:text-violet-500"><i class="fa-solid fa-arrow-right"></i></button>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <div class="flex items-center gap-3 text-sm text-slate-600">
+                                <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><i class="fa-solid fa-users text-xs"></i></div>
+                                <span class="font-medium">${data.total} Total Leads</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-sm text-red-600">
+                                <div class="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center"><i class="fa-solid fa-fire text-xs"></i></div>
+                                <span class="font-medium">${data.hot} Hot Leads</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-sm text-emerald-600">
+                                <div class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center"><i class="fa-solid fa-dollar-sign text-xs"></i></div>
+                                <span class="font-medium">${formatMoney(data.expRev)} Exp. Rev</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
         // --- 9. LEAD DETAIL MODAL & SMART SCHEDULING ---
+        function navigateLead(direction) {
+            if (!currentActiveLeadId) return;
+            
+            let contextList = window.currentLeadViewIds || [];
+            if (contextList.length === 0 || !contextList.includes(currentActiveLeadId)) {
+                contextList = [...state.leads].sort((a, b) => b.score - a.score).map(l => l.id);
+            }
+            
+            const currentIndex = contextList.indexOf(currentActiveLeadId);
+            if (currentIndex === -1) return;
+
+            let nextIndex = currentIndex + direction;
+            if (nextIndex < 0) nextIndex = contextList.length - 1; 
+            if (nextIndex >= contextList.length) nextIndex = 0;
+
+            const nextId = contextList[nextIndex];
+            if (nextId) {
+                openLeadModal(nextId);
+            }
+        }
+
         function openLeadModal(id) {
             const lead = state.leads.find(l => l.id === id);
             if(!lead) return;
 
+            currentActiveLeadId = id;
             const modal = document.getElementById('lead-modal');
             const content = document.getElementById('lead-modal-content');
 
@@ -1000,6 +1581,9 @@
             const mapLink = lead.mapsUrl ? lead.mapsUrl : (lead.address ? `https://maps.google.com/?q=${encodeURIComponent(lead.address)}` : null);
             const siteLink = lead.website ? (lead.website.startsWith('http') ? lead.website : 'https://'+lead.website) : null;
 
+            const topSiteLink = siteLink ? `<a href="${siteLink}" target="_blank" class="text-slate-400 hover:text-blue-600 transition" title="Visit Website"><i class="fa-solid fa-globe text-2xl"></i></a>` : '';
+            const topMapLink = mapLink ? `<a href="${mapLink}" target="_blank" class="text-slate-400 hover:text-red-600 transition" title="Google Maps"><i class="fa-solid fa-map-location-dot text-2xl"></i></a>` : '';
+
             let suggestions = [];
             if (!lead.website || lead.website.trim().length < 4) {
                 suggestions.push({text: 'Pitch Website Service', icon: 'fa-globe', color: 'text-blue-700 bg-blue-100 border-blue-200'});
@@ -1010,23 +1594,44 @@
             }
             const revs = parseInt(lead.reviews, 10);
             if (!isNaN(revs) && revs > 100) {
-                suggestions.push({text: 'Upsell Automation', icon: 'fa-robot', color: 'text-purple-700 bg-purple-100 border-purple-200'});
+                suggestions.push({text: 'Upsell Automation', icon: 'fa-robot', color: 'text-violet-700 bg-violet-100 border-violet-200'});
             }
             if (suggestions.length === 0) {
                 suggestions.push({text: 'Standard Follow-up', icon: 'fa-handshake', color: 'text-slate-600 bg-slate-100 border-slate-200'});
             }
 
-            const expRev = ((lead.dealValue || 0) * (lead.probability || 0)) / 100;
+            const apptMeta = getApptStatus(lead.appointment || lead.followUp);
+
+            const modalTitleEl = document.getElementById('modal-header-title');
+            if(modalTitleEl) modalTitleEl.innerText = lead.businessName;
 
             content.innerHTML = `
-                <div class="bg-slate-50 p-6 md:p-8 border-b border-slate-200">
+                <div class="bg-slate-50 p-4 md:p-8 border-b border-slate-200">
                     <div class="flex flex-col md:flex-row justify-between items-start gap-6">
                         <div>
-                            <div class="flex items-center gap-3 mb-2">
-                                <h2 class="text-3xl font-black text-slate-800">${lead.businessName}</h2>
-                                <span class="${badgeClass} px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide">${lead.temperature} (${lead.score} pts)</span>
+                            <div class="flex items-center gap-4 mb-2 flex-wrap">
+                                <h2 class="text-2xl md:text-3xl font-black text-slate-800 flex items-center gap-3">
+                                    ${lead.businessName}
+                                    ${topSiteLink}
+                                    ${topMapLink}
+                                </h2>
                             </div>
-                            <p class="text-slate-600 font-medium text-lg"><i class="fa-regular fa-user text-slate-400 mr-2"></i> ${lead.ownerName}</p>
+                            
+                            <div class="flex items-center gap-3 mb-4">
+                                <span class="${badgeClass} px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide">${lead.temperature} (${lead.score} pts)</span>
+                                <p class="text-xs text-slate-400">Campaign: <span class="font-bold">${lead.campaign || 'Default'}</span></p>
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <p class="text-slate-600 font-medium text-base md:text-lg flex items-center group w-max">
+                                    <i class="fa-regular fa-user text-slate-400 w-6 text-center mr-1"></i> ${lead.ownerName}
+                                    <button onclick="copyText('${String(lead.ownerName || '').replace(/'/g, "\\'")}')" class="ml-2 text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition" title="Copy Name"><i class="fa-regular fa-copy"></i></button>
+                                </p>
+                                <p class="text-slate-600 text-sm md:text-base flex items-center group w-max">
+                                    <i class="fa-solid fa-map-pin text-slate-400 w-6 text-center mr-1"></i> ${lead.address || 'Address Unknown'}
+                                    ${lead.address ? `<button onclick="copyText('${String(lead.address || '').replace(/'/g, "\\'")}')" class="ml-2 text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition" title="Copy Address"><i class="fa-regular fa-copy"></i></button>` : ''}
+                                </p>
+                            </div>
                             
                             <div class="mt-4 flex flex-wrap gap-2">
                                 <span class="text-[10px] uppercase font-bold text-slate-400 flex items-center mr-2"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> AI Pitch:</span>
@@ -1035,22 +1640,31 @@
                         </div>
                         
                         <div class="flex flex-wrap justify-end gap-2 w-full md:w-auto">
-                            ${waLink ? `<a href="${waLink}" target="_blank" class="px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg bg-green-500 text-white font-bold hover:bg-green-600 shadow transition" title="WhatsApp"><i class="fa-brands fa-whatsapp text-lg"></i> WhatsApp</a>` : ''}
-                            ${telLink ? `<a href="${telLink}" class="px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg bg-blue-500 text-white font-bold hover:bg-blue-600 shadow transition" title="Call"><i class="fa-solid fa-phone text-lg"></i> Call</a>` : ''}
-                            <button onclick="toggleLeadEdit('${lead.id}')" class="px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg bg-indigo-500 text-white font-bold hover:bg-indigo-600 shadow transition" title="Edit Details"><i class="fa-solid fa-pen"></i> Edit Info</button>
+                            ${waLink ? `<a href="${waLink}" target="_blank" class="px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg bg-green-500 text-white font-bold hover:bg-green-600 shadow transition flex-1 md:flex-none" title="WhatsApp"><i class="fa-brands fa-whatsapp text-lg"></i> WhatsApp</a>` : ''}
+                            ${telLink ? `<a href="${telLink}" class="px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg bg-blue-500 text-white font-bold hover:bg-blue-600 shadow transition flex-1 md:flex-none" title="Call"><i class="fa-solid fa-phone text-lg"></i> Call</a>` : ''}
+                            <button onclick="toggleLeadEdit('${lead.id}')" class="px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg bg-violet-600 text-white font-bold hover:bg-violet-700 shadow transition w-full md:w-auto mt-2 md:mt-0" title="Edit Details"><i class="fa-solid fa-pen"></i> Edit Info</button>
                         </div>
                     </div>
                 </div>
 
-                <div class="p-6 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="p-4 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                     <!-- Left: Details -->
                     <div class="md:col-span-2 space-y-6">
-                        <div class="grid grid-cols-2 gap-6 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 bg-white p-4 md:p-5 rounded-xl border border-slate-100 shadow-sm">
                             <div>
                                 <p class="text-[10px] uppercase font-bold text-slate-400 mb-1">Contact Info</p>
-                                <p class="text-sm font-medium text-slate-800"><i class="fa-brands fa-whatsapp w-4 text-green-500"></i> ${lead.whatsapp || '-'}</p>
-                                <p class="text-sm font-medium text-slate-800 mt-2"><i class="fa-solid fa-phone w-4 text-slate-400"></i> ${lead.phone || '-'}</p>
-                                <p class="text-sm font-medium text-slate-800 mt-2 truncate"><i class="fa-regular fa-envelope w-4 text-blue-400"></i> ${lead.email || '-'}</p>
+                                <p class="text-sm font-medium text-slate-800 flex items-center group w-max">
+                                    <i class="fa-brands fa-whatsapp w-5 text-center text-green-500"></i> ${lead.whatsapp || '-'}
+                                    ${lead.whatsapp ? `<button onclick="copyText('${String(lead.whatsapp || '').replace(/'/g, "\\'")}')" class="ml-2 text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition" title="Copy WhatsApp"><i class="fa-regular fa-copy"></i></button>` : ''}
+                                </p>
+                                <p class="text-sm font-medium text-slate-800 mt-2 flex items-center group w-max">
+                                    <i class="fa-solid fa-phone w-5 text-center text-slate-400"></i> ${lead.phone || '-'}
+                                    ${lead.phone ? `<button onclick="copyText('${String(lead.phone || '').replace(/'/g, "\\'")}')" class="ml-2 text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition" title="Copy Phone"><i class="fa-regular fa-copy"></i></button>` : ''}
+                                </p>
+                                <p class="text-sm font-medium text-slate-800 mt-2 flex items-center group w-max truncate max-w-full">
+                                    <i class="fa-regular fa-envelope w-5 text-center text-blue-400"></i> ${lead.email || '-'}
+                                    ${lead.email ? `<button onclick="copyText('${String(lead.email || '').replace(/'/g, "\\'")}')" class="ml-2 text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition" title="Copy Email"><i class="fa-regular fa-copy"></i></button>` : ''}
+                                </p>
                             </div>
                             <div>
                                 <p class="text-[10px] uppercase font-bold text-slate-400 mb-1">Business Stats</p>
@@ -1059,35 +1673,17 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-6 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
-                            <div class="col-span-2">
+                        <div class="grid grid-cols-1 bg-white p-4 md:p-5 rounded-xl border border-slate-100 shadow-sm">
+                            <div>
                                 <p class="text-[10px] uppercase font-bold text-slate-400 mb-3 flex justify-between items-center">
                                     Location Info
                                     ${mapLink ? `<a href="${mapLink}" target="_blank" class="text-blue-500 hover:underline text-xs lowercase"><i class="fa-solid fa-map-location-dot"></i> Open Maps</a>` : ''}
                                 </p>
-                                <p class="text-sm text-slate-700 font-medium leading-relaxed">
-                                    <span class="block mb-1"><i class="fa-solid fa-city w-4 text-slate-400"></i> ${lead.city || 'City Unknown'}</span>
-                                    <span><i class="fa-solid fa-map-pin w-4 text-slate-400"></i> ${lead.address || 'Address Unknown'}</span>
+                                <p class="text-sm text-slate-700 font-medium leading-relaxed group w-max">
+                                    <span class="block mb-1 flex items-center"><i class="fa-solid fa-city w-5 text-center text-slate-400 mr-1"></i> ${lead.city || 'City Unknown'}</span>
+                                    <span class="flex items-center"><i class="fa-solid fa-map-pin w-5 text-center text-slate-400 mr-1"></i> ${lead.address || 'Address Unknown'}
+                                    ${lead.address ? `<button onclick="copyText('${String(lead.address || '').replace(/'/g, "\\'")}')" class="ml-2 text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition" title="Copy Address"><i class="fa-regular fa-copy"></i></button>` : ''}</span>
                                 </p>
-                            </div>
-                        </div>
-
-                        <!-- Revenue -->
-                        <div class="bg-emerald-50 p-5 rounded-xl border border-emerald-100 shadow-sm">
-                            <p class="text-[10px] uppercase font-bold text-emerald-600 mb-3 flex items-center gap-2"><i class="fa-solid fa-chart-line"></i> Pipeline Financials</p>
-                            <div class="flex gap-4">
-                                <div class="flex-1">
-                                    <label class="text-[10px] font-bold text-emerald-800 uppercase block mb-1">Deal Value ($)</label>
-                                    <input type="number" id="inp-deal-val-${lead.id}" value="${lead.dealValue || ''}" oninput="updateLeadRevenue('${lead.id}')" class="w-full p-2 text-sm font-bold border border-emerald-200 rounded outline-none focus:ring-2 focus:ring-emerald-500" placeholder="0">
-                                </div>
-                                <div class="flex-1">
-                                    <label class="text-[10px] font-bold text-emerald-800 uppercase block mb-1">Probability (%)</label>
-                                    <input type="number" id="inp-prob-${lead.id}" value="${lead.probability || 10}" min="0" max="100" oninput="updateLeadRevenue('${lead.id}')" class="w-full p-2 text-sm font-bold border border-emerald-200 rounded outline-none focus:ring-2 focus:ring-emerald-500">
-                                </div>
-                            </div>
-                            <div class="pt-3 border-t border-emerald-200 mt-4 flex justify-between items-center">
-                                <span class="text-xs font-bold text-emerald-700">Expected Revenue:</span>
-                                <span class="text-xl font-black text-emerald-600" id="lbl-exp-rev-${lead.id}">${formatMoney(expRev)}</span>
                             </div>
                         </div>
 
@@ -1098,7 +1694,7 @@
                         
                         <!-- Smart Scheduling Widget -->
                         <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden" id="widget-schedule-${lead.id}">
-                            <div class="bg-purple-600 p-3 flex justify-between items-center text-white">
+                            <div class="bg-violet-600 p-3 flex justify-between items-center text-white">
                                 <span class="font-bold text-sm flex items-center gap-2"><i class="fa-regular fa-calendar-check"></i> Smart Scheduling</span>
                             </div>
                             <div class="p-4 space-y-4">
@@ -1108,7 +1704,7 @@
                                     <label class="text-[10px] uppercase font-bold text-slate-500 mb-1 flex justify-between">
                                         Meeting / Appointment
                                     </label>
-                                    <input type="datetime-local" value="${lead.appointment || ''}" oninput="updateLeadSchedule('${lead.id}', 'appointment', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-medium bg-slate-50">
+                                    <input type="datetime-local" value="${lead.appointment || ''}" oninput="updateLeadSchedule('${lead.id}', 'appointment', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-violet-500 outline-none text-slate-700 font-medium bg-slate-50">
                                 </div>
 
                                 <hr class="border-slate-100">
@@ -1118,12 +1714,12 @@
                                     <label class="text-[10px] uppercase font-bold text-slate-500 mb-1 flex justify-between">
                                         Next Follow-up
                                     </label>
-                                    <input type="datetime-local" id="input-fu-${lead.id}" value="${lead.followUp || ''}" oninput="updateLeadSchedule('${lead.id}', 'followUp', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-medium bg-slate-50 mb-2">
+                                    <input type="datetime-local" id="input-fu-${lead.id}" value="${lead.followUp || ''}" oninput="updateLeadSchedule('${lead.id}', 'followUp', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-violet-500 outline-none text-slate-700 font-medium bg-slate-50 mb-2">
                                     
                                     <div class="grid grid-cols-3 gap-2">
-                                        <button onclick="quickSchedule('${lead.id}', 'followUp', 1)" class="py-1 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-600 hover:border-purple-400 hover:text-purple-600 transition shadow-sm">+1 Day</button>
-                                        <button onclick="quickSchedule('${lead.id}', 'followUp', 3)" class="py-1 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-600 hover:border-purple-400 hover:text-purple-600 transition shadow-sm">+3 Days</button>
-                                        <button onclick="quickSchedule('${lead.id}', 'followUp', 7)" class="py-1 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-600 hover:border-purple-400 hover:text-purple-600 transition shadow-sm">+1 Week</button>
+                                        <button onclick="quickSchedule('${lead.id}', 'followUp', 1)" class="py-1 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-600 hover:border-violet-400 hover:text-violet-600 transition shadow-sm">+1 Day</button>
+                                        <button onclick="quickSchedule('${lead.id}', 'followUp', 3)" class="py-1 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-600 hover:border-violet-400 hover:text-violet-600 transition shadow-sm">+3 Days</button>
+                                        <button onclick="quickSchedule('${lead.id}', 'followUp', 7)" class="py-1 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-600 hover:border-violet-400 hover:text-violet-600 transition shadow-sm">+1 Week</button>
                                     </div>
                                 </div>
                             </div>
@@ -1131,16 +1727,14 @@
                         
                         <!-- Status Edit -->
                         <div>
-                            <select id="modal-status-edit" onchange="updateLeadField('${lead.id}', 'workflowStatus', this.value)" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm cursor-pointer">
-                                ${['New Lead', 'Contacted', 'Meeting Scheduled', 'In Negotiation', 'Closed Won', 'Closed Lost', 'Unqualified'].map(opt => 
-                                    `<option value="${opt}" ${lead.workflowStatus === opt ? 'selected' : ''}>${opt}</option>`
-                                ).join('')}
+                            <select id="modal-status-edit" onchange="updateLeadField('${lead.id}', 'workflowStatus', this.value, this)" class="w-full p-3 ${getStatusColorClass(lead.workflowStatus)} border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-violet-500 outline-none shadow-sm cursor-pointer transition">
+                                ${WORKFLOW_STATUSES.map(opt => `<option value="${opt}" ${lead.workflowStatus === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                             </select>
                         </div>
 
                         <!-- Notes Editor -->
-                        <div class="relative">
-                            <span class="absolute top-3 right-3 text-green-500 font-bold text-xs hidden" id="save-indicator"><i class="fa-solid fa-check"></i> Saved</span>
+                        <div class="relative pb-6">
+                            <span class="absolute top-3 right-3 text-emerald-500 font-bold text-xs hidden" id="save-indicator"><i class="fa-solid fa-check"></i> Saved</span>
                             <textarea id="modal-notes-edit" onblur="updateLeadField('${lead.id}', 'notes', this.value)" placeholder="Sales notes (auto-saves)..." class="w-full h-40 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner resize-none">${lead.notes || ''}</textarea>
                         </div>
 
@@ -1151,14 +1745,12 @@
             modal.classList.remove('hidden');
         }
 
-        // --- SCHEDULING LOGIC ---
         function updateLeadSchedule(id, field, value) {
             const lead = state.leads.find(l => l.id === id);
             if(!lead) return;
 
             lead[field] = value;
             
-            // Recalculate score if meeting changes
             if(field === 'appointment') {
                 lead.score = calculateScore(lead);
                 lead.temperature = getStatusFromScore(lead.score);
@@ -1167,11 +1759,10 @@
             saveData();
             filterLeads();
 
-            // Flash UI
             const widget = document.getElementById(`widget-schedule-${id}`);
             if(widget) {
                 widget.classList.remove('flash-success');
-                void widget.offsetWidth; // trigger reflow
+                void widget.offsetWidth; 
                 widget.classList.add('flash-success');
             }
         }
@@ -1179,89 +1770,84 @@
         function quickSchedule(id, field, daysToAdd) {
             const date = new Date();
             date.setDate(date.getDate() + daysToAdd);
-            
-            // If setting it out, default to 10:00 AM of that day
             date.setHours(10, 0, 0, 0); 
-            
             const formatted = toDatetimeLocal(date);
             
-            // Update input UI
             const input = document.getElementById(field === 'followUp' ? `input-fu-${id}` : `input-appt-${id}`);
             if(input) input.value = formatted;
 
-            // Trigger backend update
             updateLeadSchedule(id, field, formatted);
         }
 
-        // --- EDITING & UPDATES ---
         function toggleLeadEdit(id) {
             const lead = state.leads.find(l => l.id === id);
             if (!lead) return;
 
+            currentActiveLeadId = id;
             const content = document.getElementById('lead-modal-content');
             
+            const modalTitleEl = document.getElementById('modal-header-title');
+            if(modalTitleEl) modalTitleEl.innerText = "Edit Lead Profile";
+
             content.innerHTML = `
-                <div class="bg-indigo-600 p-6 md:p-8 border-b border-indigo-700 flex justify-between items-center">
-                    <h2 class="text-2xl font-bold text-white flex items-center gap-3"><i class="fa-solid fa-pen-to-square"></i> Edit Lead Profile</h2>
-                    <button onclick="openLeadModal('${id}')" class="text-indigo-200 hover:text-white font-bold text-sm bg-indigo-700/50 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">Cancel</button>
-                </div>
-                <div class="p-6 md:p-8">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                <div class="p-4 md:p-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 bg-white p-4 md:p-6 rounded-xl border border-slate-100 shadow-sm">
                         <div class="col-span-2 md:col-span-1">
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Business Name</label>
-                            <input id="edit-business" value="${lead.businessName || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium">
+                            <input id="edit-business" value="${lead.businessName || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm font-medium">
                         </div>
                         <div class="col-span-2 md:col-span-1">
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Owner Name</label>
-                            <input id="edit-owner" value="${lead.ownerName || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium">
+                            <input id="edit-owner" value="${lead.ownerName || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm font-medium">
                         </div>
                         
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">WhatsApp Phone</label>
-                            <input id="edit-wa" value="${lead.whatsapp || ''}" placeholder="e.g. 1234567890" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            <input id="edit-wa" value="${lead.whatsapp || ''}" placeholder="e.g. 1234567890" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm">
                         </div>
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Office Phone</label>
-                            <input id="edit-phone" value="${lead.phone || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            <input id="edit-phone" value="${lead.phone || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm">
                         </div>
                         
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Email</label>
-                            <input id="edit-email" value="${lead.email || ''}" type="email" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            <input id="edit-email" value="${lead.email || ''}" type="email" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm">
                         </div>
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">City</label>
-                            <input id="edit-city" value="${lead.city || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            <input id="edit-city" value="${lead.city || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm">
                         </div>
 
                         <div class="col-span-2">
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Full Address</label>
-                            <input id="edit-address" value="${lead.address || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            <input id="edit-address" value="${lead.address || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm">
                         </div>
 
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Website URL</label>
-                            <input id="edit-website" value="${lead.website || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            <input id="edit-website" value="${lead.website || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm">
                         </div>
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Google Maps URL</label>
-                            <input id="edit-maps" value="${lead.mapsUrl || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            <input id="edit-maps" value="${lead.mapsUrl || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm">
                         </div>
 
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Rating (1.0 - 5.0)</label>
-                            <input id="edit-rating" type="number" step="0.1" value="${lead.rating || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            <input id="edit-rating" type="number" step="0.1" value="${lead.rating || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm">
                         </div>
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Total Reviews</label>
-                            <input id="edit-reviews" type="number" value="${lead.reviews || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            <input id="edit-reviews" type="number" value="${lead.reviews || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none text-sm">
                         </div>
                         
                     </div>
                     
-                    <div class="mt-8 flex justify-end">
-                        <button onclick="saveLeadEdit('${id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition flex items-center gap-2">
-                            <i class="fa-solid fa-save"></i> Save Profile & Update Score
+                    <div class="mt-6 flex flex-col md:flex-row justify-end gap-3">
+                        <button onclick="openLeadModal('${id}')" class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold py-3 px-6 rounded-lg transition text-sm">Cancel</button>
+                        <button onclick="saveLeadEdit('${id}')" class="bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition flex items-center justify-center gap-2 text-sm">
+                            <i class="fa-solid fa-save"></i> Save Profile & Update
                         </button>
                     </div>
                 </div>
@@ -1284,46 +1870,33 @@
             lead.rating = document.getElementById('edit-rating').value;
             lead.reviews = document.getElementById('edit-reviews').value;
 
-            // Re-calculate automated engine score based on new data
             lead.score = calculateScore(lead);
             lead.temperature = getStatusFromScore(lead.score);
 
             saveData();
             filterLeads(); 
-            openLeadModal(id); // Reload modal view to updated state
+            openLeadModal(id); 
         }
 
-        function updateLeadRevenue(id) {
-            const lead = state.leads.find(l => l.id === id);
-            if(!lead) return;
-
-            const valStr = document.getElementById(`inp-deal-val-${id}`).value;
-            const probStr = document.getElementById(`inp-prob-${id}`).value;
-
-            lead.dealValue = parseFloat(valStr) || 0;
-            lead.probability = parseInt(probStr, 10) || 0;
-
-            const exp = (lead.dealValue * lead.probability) / 100;
-            document.getElementById(`lbl-exp-rev-${id}`).innerText = formatMoney(exp);
-
-            saveData(); // Persist and update dashboard metrics in bg
-        }
-
-        function closeLeadModal() {
-            document.getElementById('lead-modal').classList.add('hidden');
-        }
-
-        function updateLeadField(id, field, value) {
+        function updateLeadField(id, field, value, el = null) {
             const lead = state.leads.find(l => l.id === id);
             if(lead) {
                 lead[field] = value;
-                saveData(); // Persist
-                filterLeads(); // Update background table
+                saveData(); 
+                filterLeads(); 
                 
                 if(field === 'notes') {
                     const ind = document.getElementById('save-indicator');
-                    ind.classList.remove('hidden');
-                    setTimeout(() => ind.classList.add('hidden'), 2000);
+                    if(ind) {
+                        ind.classList.remove('hidden');
+                        setTimeout(() => ind.classList.add('hidden'), 2000);
+                    }
+                }
+                
+                if(field === 'workflowStatus') {
+                    if (currentActiveLeadId === id && !document.getElementById('lead-modal').classList.contains('hidden')) {
+                        openLeadModal(id); 
+                    }
                 }
             }
         }
@@ -1337,7 +1910,187 @@
             }
         }
 
+        // --- BACKUP & GOOGLE DRIVE SYNC ---
+        function getActiveGoogleConfig() {
+            if(!state.googleConfigs || !state.activeGoogleConfigId) return null;
+            return state.googleConfigs.find(c => c.id === state.activeGoogleConfigId);
+        }
+
+        function renderGoogleConfigs() {
+            const select = document.getElementById('sel-g-config');
+            if(!select) return;
+            select.innerHTML = '<option value="">-- Add a new configuration below --</option>';
+            if(state.googleConfigs) {
+                state.googleConfigs.forEach(conf => {
+                    const opt = document.createElement('option');
+                    opt.value = conf.id;
+                    opt.innerText = conf.name;
+                    if(conf.id === state.activeGoogleConfigId) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        function changeActiveGoogleConfig() {
+            state.activeGoogleConfigId = document.getElementById('sel-g-config').value;
+            saveData();
+            initGoogleAPI();
+            showToast("Active configuration changed.");
+        }
+
+        function deleteActiveGoogleConfig() {
+            if(!state.activeGoogleConfigId) return;
+            if(confirm("Delete this configuration?")) {
+                state.googleConfigs = state.googleConfigs.filter(c => c.id !== state.activeGoogleConfigId);
+                state.activeGoogleConfigId = state.googleConfigs.length > 0 ? state.googleConfigs[0].id : null;
+                saveData();
+                renderGoogleConfigs();
+                initGoogleAPI();
+            }
+        }
+
+        function initGoogleAPI() {
+            const conf = getActiveGoogleConfig();
+            if(conf && conf.clientId) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: conf.clientId,
+                    scope: 'https://www.googleapis.com/auth/drive.file',
+                    callback: '', 
+                });
+                gisInited = true;
+            } else {
+                gisInited = false;
+                tokenClient = null;
+            }
+        }
+
+        function saveGoogleConfig() {
+            const name = document.getElementById('inp-g-name').value.trim() || 'Profile ' + ((state.googleConfigs?.length || 0) + 1);
+            const cid = document.getElementById('inp-g-client').value.trim();
+            const key = document.getElementById('inp-g-api').value.trim();
+            
+            if(!cid || !key) return alert("Please provide both Client ID and API Key.");
+            
+            const newConfId = generateId();
+            if(!state.googleConfigs) state.googleConfigs = [];
+            state.googleConfigs.push({ id: newConfId, name, clientId: cid, apiKey: key });
+            state.activeGoogleConfigId = newConfId;
+            
+            document.getElementById('inp-g-name').value = '';
+            document.getElementById('inp-g-client').value = '';
+            document.getElementById('inp-g-api').value = '';
+            
+            saveData();
+            renderGoogleConfigs();
+            initGoogleAPI();
+            alert("Google API Configuration saved and activated.");
+        }
+
+        function handleAuthClick() {
+            const conf = getActiveGoogleConfig();
+            if(!conf || !conf.clientId) return alert("Please configure and select a Google Configuration first.");
+            
+            if(!gisInited) initGoogleAPI();
+
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) throw (resp);
+                const statusEl = document.getElementById('gdrive-status');
+                if(statusEl) {
+                    statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Connected';
+                    statusEl.className = 'px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1 border border-green-200';
+                }
+                
+                sessionStorage.setItem('gdrive_access_token', resp.access_token);
+                await performDriveBackup(resp.access_token);
+            };
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        }
+
+        async function performDriveBackup(token) {
+            try {
+                const fileContent = JSON.stringify(state, null, 2);
+                const file = new Blob([fileContent], {type: 'application/json'});
+                const metadata = {
+                    'name': `ownit-backup-${new Date().toISOString().slice(0,10)}.json`,
+                    'mimeType': 'application/json'
+                };
+
+                const form = new FormData();
+                form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+                form.append('file', file);
+
+                const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                    method: 'POST',
+                    headers: new Headers({'Authorization': 'Bearer ' + token}),
+                    body: form
+                });
+                
+                if(!res.ok) throw new Error("Upload failed");
+                
+                const today = new Date().toLocaleString();
+                state.lastDriveBackup = today;
+                saveData();
+                updateBackupLabels();
+                showToast("Data backed up to Google Drive successfully!");
+
+            } catch (err) {
+                console.error("Drive Error", err);
+                alert("Drive Backup Failed. Check console for details.");
+            }
+        }
+
+        function toggleAutoBackup() {
+            const chk = document.getElementById('chk-auto-backup');
+            if(chk) {
+                state.autoBackup = chk.checked;
+                saveData();
+                if(state.autoBackup) showToast("Auto-backup enabled. Make sure to connect Drive.");
+            }
+        }
+
+        function updateBackupLabels() {
+            const lbl = document.getElementById('lbl-last-backup');
+            if(lbl) {
+                lbl.innerText = state.lastDriveBackup ? `Last Cloud Backup: ${state.lastDriveBackup}` : 'Last Cloud Backup: Never';
+            }
+        }
+
+        function exportData(type) {
+            const now = new Date().toISOString().slice(0,10);
+            let data, filename, mimeType;
+
+            if (type === 'json') {
+                data = JSON.stringify(state, null, 2);
+                filename = `ownit-full-backup-${now}.json`;
+                mimeType = 'application/json';
+            } else {
+                const headers = ['Company', 'Contact', 'Phone', 'WhatsApp', 'Email', 'City', 'Score', 'Status', 'Campaign', 'Appointment'];
+                const rows = state.leads.map(l => [
+                    l.businessName, l.ownerName, l.phone, l.whatsapp, l.email, l.city, l.score, l.temperature, l.campaign, l.appointment
+                ]);
+                const csvContent = [headers.join(','), ...rows.map(e => e.map(field => `"${String(field || '').replace(/"/g, '""')}"`).join(','))].join('\n');
+                data = csvContent;
+                filename = `ownit-leads-${now}.csv`;
+                mimeType = 'text/csv';
+            }
+
+            const blob = new Blob([data], { type: mimeType });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', filename);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
         // Boot app
+        function closeLeadModal() {
+            document.getElementById('lead-modal').classList.add('hidden');
+            currentActiveLeadId = null;
+        }
+
         init();
 
     </script>

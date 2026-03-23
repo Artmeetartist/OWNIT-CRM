@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OWNIT Software - CRM Pipeline</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --sidebar-bg: #0f172a;
+            --primary: #2563eb;
+            --hot: #ef4444;
+            --warm: #f97316;
+            --cold: #3b82f6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+        }
+
+        /* Smooth UI transitions */
+        .fade-in { animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Status Badges */
+        .badge-hot { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .badge-warm { background-color: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
+        .badge-cold { background-color: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+
+        /* Drag and Drop Zone */
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.2s ease;
+        }
+        .drop-zone.dragover {
+            border-color: var(--primary);
+            background-color: #eff6ff;
+        }
+
+        .hidden-view { display: none !important; }
+
+        /* Simple Bar Chart CSS */
+        .bar-chart-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            height: 200px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #e2e8f0;
+            overflow-x: auto;
+        }
+        .bar {
+            flex: 1;
+            min-width: 40px;
+            border-radius: 6px 6px 0 0;
+            position: relative;
+            transition: height 0.5s ease;
+            opacity: 0.9;
+        }
+        .bar:hover {
+            opacity: 1;
+        }
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #64748b;
+            white-space: nowrap;
+            text-align: center;
+        }
+        .bar-value {
+            position: absolute;
+            top: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: #1e293b;
+        }
+
+        /* Success Flash Animation */
+        @keyframes flashSuccess {
+            0% { background-color: #dcfce7; border-color: #22c55e; }
+            100% { background-color: white; border-color: #e2e8f0; }
+        }
+        .flash-success {
+            animation: flashSuccess 1s ease-out;
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-slate-800">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex z-20 shadow-xl">
+        <div class="p-6 border-b border-slate-800 flex items-center gap-3">
+            <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-xl shadow-lg">O</div>
+            <div>
+                <h1 class="text-lg font-bold tracking-wide leading-tight">OWNIT</h1>
+                <p class="text-[10px] text-blue-400 uppercase tracking-widest font-semibold">Software Pvt Ltd</p>
+            </div>
+        </div>
+
+        <nav class="flex-1 p-4 space-y-2 mt-4">
+            <button onclick="switchView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 p-3 rounded-lg bg-blue-600 text-white transition font-medium shadow-md">
+                <i class="fa-solid fa-chart-pie w-5"></i> Dashboard
+            </button>
+            <button onclick="switchView('leads')" id="nav-leads" class="w-full flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition font-medium">
+                <i class="fa-solid fa-list-ul w-5"></i> Pipeline
+            </button>
+            <button onclick="switchView('calendar')" id="nav-calendar" class="w-full flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition font-medium">
+                <i class="fa-regular fa-calendar-check w-5"></i> Agenda
+            </button>
+            <button onclick="switchView('upload')" id="nav-upload" class="w-full flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition font-medium">
+                <i class="fa-solid fa-cloud-arrow-up w-5"></i> Import Leads
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800">
+            <button onclick="wipeData()" class="w-full flex items-center justify-center gap-2 p-2 rounded text-red-400 hover:bg-slate-800 transition text-sm">
+                <i class="fa-solid fa-trash-can"></i> Reset Database
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-screen relative">
+        
+        <!-- Mobile Header -->
+        <header class="bg-white shadow-sm p-4 flex justify-between items-center md:hidden z-10">
+            <div class="font-bold text-blue-600 flex items-center gap-2"><i class="fa-solid fa-bolt"></i> OWNIT CRM</div>
+            <button class="text-slate-600 p-2" onclick="document.querySelector('aside').classList.toggle('hidden')"><i class="fa-solid fa-bars text-xl"></i></button>
+        </header>
+
+        <!-- VIEWS CONTAINER -->
+        <div class="flex-1 overflow-auto p-4 md:p-8 relative">
+            
+            <!-- 1. DASHBOARD VIEW -->
+            <div id="view-dashboard" class="fade-in">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800">Pipeline Overview</h2>
+                    <p class="text-slate-500 text-sm">Real-time ingestion and scoring metrics. Click cards to filter the pipeline.</p>
+                </div>
+
+                <!-- KPIs -->
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
+                    <div onclick="filterFromDashboard('ALL')" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 border-l-4 border-l-blue-500 cursor-pointer transform hover:-translate-y-1 hover:shadow-md transition">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Leads</p>
+                        <h3 class="text-2xl font-bold text-slate-800 mt-2" id="kpi-total">0</h3>
+                    </div>
+                    <div onclick="filterFromDashboard('HOT')" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 border-l-4 border-l-red-500 cursor-pointer transform hover:-translate-y-1 hover:shadow-md transition">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hot Leads 🔥</p>
+                        <h3 class="text-2xl font-bold text-red-600 mt-2" id="kpi-hot">0</h3>
+                    </div>
+                    <div onclick="filterFromDashboard('APPT')" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 border-l-4 border-l-purple-500 cursor-pointer transform hover:-translate-y-1 hover:shadow-md transition">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Appointments</p>
+                        <h3 class="text-2xl font-bold text-purple-600 mt-2" id="kpi-appointments">0</h3>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 border-l-4 border-l-emerald-500">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Exp. Revenue</p>
+                        <h3 class="text-2xl font-bold text-emerald-600 mt-2" id="kpi-revenue">$0</h3>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 border-l-4 border-l-slate-300">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Conversion</p>
+                        <h3 class="text-2xl font-bold text-slate-600 mt-2" id="kpi-conversion">0%</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Chart -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 lg:col-span-1">
+                        <h3 class="font-bold text-slate-700 mb-6">Pipeline Distribution</h3>
+                        <div class="bar-chart-container" id="status-chart">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Recent Hot Leads -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden lg:col-span-2">
+                        <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+                            <h3 class="font-bold text-slate-700">Recent Hot Opportunities</h3>
+                            <button onclick="filterFromDashboard('HOT')" class="text-sm text-blue-600 hover:underline">View All</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider">
+                                    <tr>
+                                        <th class="p-4 font-bold">Business</th>
+                                        <th class="p-4 font-bold">Contact</th>
+                                        <th class="p-4 font-bold">Score</th>
+                                        <th class="p-4 font-bold">City</th>
+                                        <th class="p-4 font-bold text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-recent-hot" class="divide-y divide-slate-100">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. LEADS / PIPELINE VIEW -->
+            <div id="view-leads" class="hidden-view fade-in">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Lead Pipeline</h2>
+                        <p class="text-slate-500 text-sm">Manage, filter, and engage with your leads.</p>
+                    </div>
+                    <button onclick="switchView('upload')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-sm font-medium flex items-center gap-2 transition">
+                        <i class="fa-solid fa-plus"></i> Import New
+                    </button>
+                </div>
+
+                <!-- Filters -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6 flex flex-wrap gap-4 items-center">
+                    <div class="relative flex-1 min-w-[200px]">
+                        <i class="fa-solid fa-search absolute left-3 top-3.5 text-slate-400"></i>
+                        <input type="text" id="search-input" placeholder="Search by name, business, or phone..." class="w-full pl-10 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition text-sm" oninput="filterLeads()">
+                    </div>
+                    <select id="filter-temp" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" onchange="filterLeads()">
+                        <option value="">All Temperatures</option>
+                        <option value="HOT">Hot Leads 🔥 (>70)</option>
+                        <option value="WARM">Warm Leads ⚡ (40-70)</option>
+                        <option value="COLD">Cold Leads ❄️ (<40)</option>
+                    </select>
+                    <select id="filter-city" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" onchange="filterLeads()">
+                        <option value="">All Cities</option>
+                        <!-- Populated by JS -->
+                    </select>
+                    <select id="filter-appt" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" onchange="filterLeads()">
+                        <option value="">Any Appointment</option>
+                        <option value="yes">Has Appointment</option>
+                        <option value="no">No Appointment</option>
+                    </select>
+                </div>
+
+                <!-- Leads Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden relative min-h-[400px]">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider">
+                                <tr>
+                                    <th class="p-4 font-bold">Business Info</th>
+                                    <th class="p-4 font-bold">Owner Contact</th>
+                                    <th class="p-4 font-bold text-center">Score & Temp</th>
+                                    <th class="p-4 font-bold">Next Action</th>
+                                    <th class="p-4 font-bold">Workflow Status</th>
+                                    <th class="p-4 font-bold text-right">Quick Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leads-table-body" class="divide-y divide-slate-100">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="empty-state" class="hidden absolute inset-0 bg-white flex flex-col items-center justify-center text-slate-400 p-8">
+                        <i class="fa-solid fa-folder-open text-4xl mb-3 text-slate-300"></i>
+                        <p>No leads found matching your criteria.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2.5 CALENDAR / AGENDA VIEW -->
+            <div id="view-calendar" class="hidden-view fade-in">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800">Smart Agenda</h2>
+                    <p class="text-slate-500 text-sm">Track your upcoming appointments and follow-ups in real-time.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Overdue -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                        <h3 class="font-bold text-red-600 mb-4 flex items-center gap-2"><i class="fa-solid fa-circle-exclamation"></i> Overdue Action</h3>
+                        <div id="agenda-overdue" class="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Today -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5 ring-2 ring-emerald-500/20">
+                        <h3 class="font-bold text-emerald-600 mb-4 flex items-center gap-2"><i class="fa-solid fa-bolt"></i> Today</h3>
+                        <div id="agenda-today" class="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Upcoming -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                        <h3 class="font-bold text-purple-600 mb-4 flex items-center gap-2"><i class="fa-regular fa-calendar-check"></i> Upcoming</h3>
+                        <div id="agenda-upcoming" class="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. UPLOAD & MAP VIEW -->
+            <div id="view-upload" class="hidden-view fade-in max-w-4xl mx-auto">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800">Data Ingestion</h2>
+                    <p class="text-slate-500 text-sm">Upload CSV files, map columns, and let the engine auto-score leads.</p>
+                </div>
+
+                <!-- Step 1: Upload -->
+                <div id="upload-step-1" class="bg-white rounded-xl shadow-sm border border-slate-100 p-8">
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Target City (for +10 Score Bonus)</label>
+                        <input type="text" id="inp-target-city" placeholder="e.g., San Francisco" class="w-full md:w-1/2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" value="San Francisco">
+                    </div>
+
+                    <div id="drop-zone" class="drop-zone rounded-xl p-12 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-slate-100 text-slate-500 relative">
+                        <i class="fa-solid fa-file-csv text-5xl mb-4 text-blue-300"></i>
+                        <p class="font-medium text-slate-700 mb-1">Click or drag CSV file to upload</p>
+                        <p class="text-xs">Only .csv files are supported</p>
+                        <input type="file" id="file-input" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- Step 2: Mapper -->
+                <div id="upload-step-2" class="hidden bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                    <div class="flex justify-between items-center mb-6 border-b pb-4">
+                        <h3 class="text-lg font-bold text-slate-800">Map CSV Columns</h3>
+                        <button onclick="resetUpload()" class="text-sm text-slate-500 hover:text-red-500">Cancel</button>
+                    </div>
+                    
+                    <p class="text-sm text-slate-600 mb-4 bg-blue-50 p-3 rounded text-blue-800 border border-blue-100">
+                        <i class="fa-solid fa-robot"></i> The system attempted to auto-map your fields. Please verify before importing.
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mb-8" id="mapping-container">
+                        <!-- Mapping selects generated by JS -->
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button onclick="processImport()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg shadow-md font-bold flex items-center gap-2 transition">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Process & Import Leads
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- LEAD DETAIL MODAL OVERLAY -->
+    <div id="lead-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4" onclick="if(event.target === this) closeLeadModal()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden fade-in relative">
+            <button onclick="closeLeadModal()" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-600 transition z-20">
+                <i class="fa-solid fa-times"></i>
+            </button>
+            
+            <div class="flex-1 overflow-y-auto" id="lead-modal-content">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- VANILLA JAVASCRIPT APP LOGIC -->
+    <script>
+        /**
+         * OWNIT - CRM Engine (Vanilla JS)
+         * Architecture: Local Storage state -> Render Functions -> Event Listeners
+         */
+
+        // --- 1. STATE MANAGEMENT ---
+        const STORAGE_KEY = 'ownit_crm_data_v1';
+        let state = {
+            leads: [],
+            targetCity: 'San Francisco'
+        };
+
+        // Standard Fields expected by our CRM
+        const CRM_FIELDS = [
+            { key: 'ownerName', label: 'Owner Name', required: true },
+            { key: 'whatsapp', label: 'Owner Phone (WhatsApp)' },
+            { key: 'email', label: 'Owner Email' },
+            { key: 'businessName', label: 'Business Name', required: true },
+            { key: 'city', label: 'City' },
+            { key: 'address', label: 'Address' },
+            { key: 'phone', label: 'Business Phone' },
+            { key: 'website', label: 'Website URL' },
+            { key: 'rating', label: 'Rating (1-5)' },
+            { key: 'reviews', label: 'Total Reviews' },
+            { key: 'appointment', label: 'Appointment Date/Time' },
+            { key: 'followUp', label: 'Follow-up Date/Time' }, // New Field
+            { key: 'mapsUrl', label: 'Google Maps URL' },
+            { key: 'notes', label: 'Sales Note' }
+        ];
+
+        // Temp variables for CSV parsing state
+        let rawCSVHeaders = [];
+        let rawCSVRows = [];
+
+        // --- 2. INITIALIZATION ---
+        function init() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    state = JSON.parse(saved);
+                    // Ensure backward compatibility
+                    if(!state.leads) state.leads = [];
+                } catch(e) { console.error("Data load error", e); }
+            }
+            
+            document.getElementById('inp-target-city').value = state.targetCity || 'San Francisco';
+            setupDragAndDrop();
+            renderDashboard(); // Default view
+        }
+
+        function saveData() {
+            state.targetCity = document.getElementById('inp-target-city').value.trim() || 'San Francisco';
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            renderDashboard(); // Keep metrics updated
+            if(!document.getElementById('view-calendar').classList.contains('hidden-view')) renderCalendar();
+        }
+
+        function wipeData() {
+            if(confirm("Are you sure you want to delete ALL leads? This cannot be undone.")) {
+                state.leads = [];
+                saveData();
+                switchView('dashboard');
+            }
+        }
+
+        // --- 3. NAVIGATION ---
+        function switchView(viewName) {
+            // Hide all
+            document.getElementById('view-dashboard').classList.add('hidden-view');
+            document.getElementById('view-leads').classList.add('hidden-view');
+            document.getElementById('view-calendar').classList.add('hidden-view');
+            document.getElementById('view-upload').classList.add('hidden-view');
+            
+            // Show target
+            document.getElementById(`view-${viewName}`).classList.remove('hidden-view');
+            
+            // Update sidebar UI
+            document.querySelectorAll('aside nav button').forEach(b => {
+                b.className = 'w-full flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition font-medium';
+            });
+            document.getElementById(`nav-${viewName}`).className = 'w-full flex items-center gap-3 p-3 rounded-lg bg-blue-600 text-white transition font-medium shadow-md';
+
+            // Trigger specific render logic
+            if (viewName === 'dashboard') renderDashboard();
+            if (viewName === 'calendar') renderCalendar();
+            if (viewName === 'leads') {
+                populateFilterOptions();
+                filterLeads(); // Renders table based on current filters
+            }
+        }
+
+        function filterFromDashboard(filterType) {
+            switchView('leads');
+            const tempSelect = document.getElementById('filter-temp');
+            const apptSelect = document.getElementById('filter-appt');
+            const searchInput = document.getElementById('search-input');
+            const citySelect = document.getElementById('filter-city');
+
+            // Reset
+            tempSelect.value = '';
+            apptSelect.value = '';
+            searchInput.value = '';
+            citySelect.value = '';
+
+            // Apply specific
+            if (filterType === 'HOT') tempSelect.value = 'HOT';
+            if (filterType === 'APPT') apptSelect.value = 'yes';
+            
+            filterLeads();
+        }
+
+        // --- 4. CSV PARSER ENGINE (NO LIBS) ---
+        function parseCSVToArray(strData, strDelimiter = ",") {
+            const objPattern = new RegExp(
+                ("(\\" + strDelimiter + "|\\r?\\n|\\r|^)" +
+                "(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" +
+                "([^\"\\" + strDelimiter + "\\r\\n]*))"), "gi"
+            );
+            let arrData = [[]];
+            let arrMatches = null;
+            while (arrMatches = objPattern.exec(strData)) {
+                let strMatchedDelimiter = arrMatches[1];
+                if (strMatchedDelimiter.length && strMatchedDelimiter !== strDelimiter) {
+                    arrData.push([]);
+                }
+                let strMatchedValue;
+                if (arrMatches[2]) {
+                    strMatchedValue = arrMatches[2].replace(new RegExp("\"\"", "g"), "\"");
+                } else {
+                    strMatchedValue = arrMatches[3];
+                }
+                arrData[arrData.length - 1].push(strMatchedValue);
+            }
+            return arrData.filter(row => row.length > 1 || (row.length === 1 && row[0].trim() !== ''));
+        }
+
+        // --- 5. UPLOAD & MAPPING FLOW ---
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('drop-zone');
+            const fileInput = document.getElementById('file-input');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                let dt = e.dataTransfer;
+                let files = dt.files;
+                handleFiles(files);
+            });
+
+            fileInput.addEventListener('change', function() {
+                handleFiles(this.files);
+            });
+        }
+
+        function handleFiles(files) {
+            if (!files.length) return;
+            const file = files[0];
+            if (!file.name.endsWith('.csv')) {
+                alert('Please upload a valid .csv file.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const parsed = parseCSVToArray(text);
+                
+                if(parsed.length < 2) return alert("File is empty or invalid format.");
+                
+                rawCSVHeaders = parsed[0].map(h => h.trim());
+                rawCSVRows = parsed.slice(1);
+                
+                showMappingUI();
+            };
+            reader.readAsText(file);
+        }
+
+        function showMappingUI() {
+            document.getElementById('upload-step-1').classList.add('hidden');
+            document.getElementById('upload-step-2').classList.remove('hidden');
+
+            const container = document.getElementById('mapping-container');
+            container.innerHTML = '';
+
+            CRM_FIELDS.forEach(field => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex flex-col gap-1';
+
+                const label = document.createElement('label');
+                label.className = 'text-xs font-bold text-slate-600 uppercase tracking-wide';
+                label.innerText = field.label + (field.required ? ' *' : '');
+
+                const select = document.createElement('select');
+                select.className = 'p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none';
+                select.id = `map_${field.key}`;
+
+                let optionsHTML = `<option value="">-- Ignore this field --</option>`;
+                
+                let matchedIndex = -1;
+                rawCSVHeaders.forEach((csvHeader, idx) => {
+                    const cleanHeader = csvHeader.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const cleanKey = field.key.toLowerCase();
+                    const cleanLabel = field.label.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    
+                    if (cleanHeader === cleanKey || cleanHeader.includes(cleanKey) || cleanLabel.includes(cleanHeader)) {
+                        matchedIndex = idx;
+                    }
+                    optionsHTML += `<option value="${idx}">${csvHeader}</option>`;
+                });
+
+                select.innerHTML = optionsHTML;
+                if (matchedIndex !== -1) select.value = matchedIndex;
+
+                wrapper.appendChild(label);
+                wrapper.appendChild(select);
+                container.appendChild(wrapper);
+            });
+        }
+
+        function resetUpload() {
+            document.getElementById('file-input').value = '';
+            document.getElementById('upload-step-2').classList.add('hidden');
+            document.getElementById('upload-step-1').classList.remove('hidden');
+            rawCSVHeaders = [];
+            rawCSVRows = [];
+        }
+
+        // --- 6. LEAD PROCESSING ENGINE ---
+        function cleanPhone(phone) {
+            if (!phone) return '';
+            return phone.toString().replace(/[^0-9+]/g, '');
+        }
+
+        function isValidEmail(email) {
+            if (!email) return false;
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        function calculateScore(lead) {
+            let score = 0;
+            const targetCity = document.getElementById('inp-target-city').value.trim().toLowerCase();
+
+            const rating = parseFloat(lead.rating);
+            const reviews = parseInt(lead.reviews, 10);
+
+            // Logic Rules
+            if (!isNaN(rating) && rating >= 4.5) score += 30;
+            if (!isNaN(reviews) && reviews >= 100) score += 20;
+            if (lead.website && lead.website.trim().length > 4) score += 15;
+            if (lead.appointment && lead.appointment.trim() !== '') score += 25;
+            if (lead.city && targetCity && lead.city.trim().toLowerCase() === targetCity) score += 10;
+
+            // Penalty
+            if (isNaN(rating) || isNaN(reviews) || reviews === 0) score -= 10;
+
+            return score;
+        }
+
+        function getStatusFromScore(score) {
+            if (score > 70) return 'HOT';
+            if (score >= 40) return 'WARM';
+            return 'COLD';
+        }
+
+        function processImport() {
+            const mapping = {};
+            CRM_FIELDS.forEach(f => {
+                const val = document.getElementById(`map_${f.key}`).value;
+                if (val !== '') mapping[f.key] = parseInt(val, 10);
+            });
+
+            if (mapping['ownerName'] === undefined || mapping['businessName'] === undefined) {
+                return alert("Owner Name and Business Name are required fields to map.");
+            }
+
+            let newCount = 0;
+            let duplicateCount = 0;
+
+            rawCSVRows.forEach(row => {
+                let lead = { 
+                    id: 'ld_' + Date.now() + Math.random().toString(36).substr(2, 9),
+                    dealValue: 0,
+                    probability: 10
+                };
+                
+                for (const [key, colIdx] of Object.entries(mapping)) {
+                    lead[key] = row[colIdx] ? row[colIdx].trim() : '';
+                }
+
+                lead.whatsapp = cleanPhone(lead.whatsapp);
+                lead.phone = cleanPhone(lead.phone);
+                if (lead.email && !isValidEmail(lead.email)) lead.email = '';
+
+                // Transform legacy dates if imported
+                if (lead.appointment) lead.appointment = tryFormatDateForInput(lead.appointment);
+                if (lead.followUp) lead.followUp = tryFormatDateForInput(lead.followUp);
+
+                const isDuplicate = state.leads.some(existing => {
+                    const phoneMatch = lead.whatsapp && existing.whatsapp === lead.whatsapp;
+                    const emailMatch = lead.email && existing.email === lead.email;
+                    return phoneMatch || emailMatch;
+                });
+
+                if (isDuplicate) {
+                    duplicateCount++;
+                    return; 
+                }
+
+                lead.score = calculateScore(lead);
+                lead.temperature = getStatusFromScore(lead.score);
+                lead.workflowStatus = 'New Lead';
+                lead.importedAt = new Date().toISOString();
+
+                state.leads.push(lead);
+                newCount++;
+            });
+
+            saveData();
+            alert(`Import Complete!\n\nSuccessfully added: ${newCount} leads.\nSkipped duplicates: ${duplicateCount}`);
+            resetUpload();
+            switchView('leads');
+        }
+
+        // --- UTILS FOR SMART SCHEDULING ---
+        const formatMoney = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+        
+        // Formats a JS Date to "YYYY-MM-DDThh:mm" for <input type="datetime-local">
+        function toDatetimeLocal(date) {
+            const pad = (n) => n.toString().padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        }
+
+        // Display friendly date
+        function formatDisplayDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            if (isNaN(d)) return dateStr;
+            return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(d);
+        }
+
+        // Try to parse legacy CSV dates into standard ISO
+        function tryFormatDateForInput(str) {
+            if(!str) return '';
+            const d = new Date(str);
+            if(isNaN(d)) return str; 
+            return toDatetimeLocal(d);
+        }
+
+        function getApptStatus(apptString) {
+            if(!apptString || apptString.trim() === '') return { status: 'none', color: 'text-slate-300', bg: '' };
+            
+            const apptDate = new Date(apptString);
+            if(isNaN(apptDate)) return { status: 'upcoming', color: 'text-blue-700', bg: 'bg-blue-100' };
+
+            const today = new Date();
+            const apptDay = new Date(apptDate);
+            
+            // Normalize to start of day for accurate categorization
+            const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+            const a0 = new Date(apptDay.getFullYear(), apptDay.getMonth(), apptDay.getDate()).getTime();
+
+            if(a0 < t0) return { status: 'overdue', color: 'text-red-700', bg: 'bg-red-100 border border-red-200' };
+            if(a0 === t0) return { status: 'today', color: 'text-emerald-700', bg: 'bg-emerald-100 border border-emerald-200 shadow-sm' };
+            
+            return { status: 'upcoming', color: 'text-purple-700', bg: 'bg-purple-100' };
+        }
+
+        // --- 7. DASHBOARD RENDERER ---
+        function renderDashboard() {
+            const leads = state.leads;
+            
+            document.getElementById('kpi-total').innerText = leads.length;
+            
+            const hotCount = leads.filter(l => l.temperature === 'HOT').length;
+            document.getElementById('kpi-hot').innerText = hotCount;
+
+            const apptCount = leads.filter(l => l.appointment && l.appointment.trim() !== '').length;
+            document.getElementById('kpi-appointments').innerText = apptCount;
+
+            const conv = leads.length > 0 ? Math.round((apptCount / leads.length) * 100) : 0;
+            document.getElementById('kpi-conversion').innerText = conv + '%';
+
+            let totalExpectedRev = 0;
+            leads.forEach(l => {
+                totalExpectedRev += ((l.dealValue || 0) * (l.probability || 0)) / 100;
+            });
+            document.getElementById('kpi-revenue').innerText = formatMoney(totalExpectedRev);
+
+            const temps = { HOT: 0, WARM: 0, COLD: 0 };
+            leads.forEach(l => temps[l.temperature] = (temps[l.temperature] || 0) + 1);
+            
+            const maxVal = Math.max(...Object.values(temps), 1);
+            const chartHtml = Object.entries(temps).map(([k, v]) => {
+                const h = Math.max((v / maxVal) * 100, 5);
+                const color = k === 'HOT' ? '#ef4444' : (k === 'WARM' ? '#f97316' : '#3b82f6');
+                return `
+                    <div class="bar" style="height: ${h}%; background-color: ${color}">
+                        <div class="bar-value">${v}</div>
+                        <div class="bar-label font-bold">${k}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            const chartEl = document.getElementById('status-chart');
+            if(chartEl) {
+                chartEl.innerHTML = chartHtml;
+            }
+
+            const recentHot = leads.filter(l => l.temperature === 'HOT')
+                                   .sort((a,b) => b.score - a.score)
+                                   .slice(0, 5);
+            
+            const tbody = document.getElementById('dashboard-recent-hot');
+            if(tbody) {
+                if (recentHot.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400 italic">No hot leads detected yet.</td></tr>`;
+                } else {
+                    tbody.innerHTML = recentHot.map(lead => {
+                        const waLink = lead.whatsapp ? `https://wa.me/${cleanPhone(lead.whatsapp)}` : null;
+                        const telLink = lead.phone ? `tel:${cleanPhone(lead.phone)}` : null;
+                        const mailLink = lead.email ? `mailto:${lead.email}` : null;
+                        
+                        return `
+                            <tr class="border-b border-slate-50 last:border-0 hover:bg-slate-50 cursor-pointer group" onclick="openLeadModal('${lead.id}')">
+                                <td class="p-4 font-bold text-slate-800">${lead.businessName}</td>
+                                <td class="p-4 text-slate-600">${lead.ownerName}</td>
+                                <td class="p-4"><span class="badge-hot px-2 py-1 rounded text-xs font-bold">${lead.score} pts</span></td>
+                                <td class="p-4 text-slate-500">${lead.city || '-'}</td>
+                                <td class="p-4 text-right">
+                                    <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        ${waLink ? `<button onclick="event.stopPropagation(); window.open('${waLink}', '_blank')" class="w-8 h-8 rounded bg-green-50 text-green-600 hover:bg-green-500 hover:text-white transition shadow-sm" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}
+                                        ${telLink ? `<button onclick="event.stopPropagation(); window.location.href='${telLink}'" class="w-8 h-8 rounded bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition shadow-sm" title="Call"><i class="fa-solid fa-phone"></i></button>` : ''}
+                                        ${mailLink ? `<button onclick="event.stopPropagation(); window.location.href='${mailLink}'" class="w-8 h-8 rounded bg-slate-100 text-slate-500 hover:bg-slate-500 hover:text-white transition shadow-sm" title="Email"><i class="fa-regular fa-envelope"></i></button>` : ''}
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
+        }
+
+        // --- 8. PIPELINE (LEADS) RENDERER & FILTERS ---
+        function populateFilterOptions() {
+            const cities = [...new Set(state.leads.map(l => l.city).filter(c => c))].sort();
+            const cityFilter = document.getElementById('filter-city');
+            cityFilter.innerHTML = '<option value="">All Cities</option>' + 
+                cities.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        function filterLeads() {
+            const q = document.getElementById('search-input').value.toLowerCase();
+            const temp = document.getElementById('filter-temp').value;
+            const city = document.getElementById('filter-city').value;
+            const appt = document.getElementById('filter-appt').value;
+
+            const filtered = state.leads.filter(l => {
+                const mQuery = (l.ownerName||'').toLowerCase().includes(q) || 
+                               (l.businessName||'').toLowerCase().includes(q) || 
+                               (l.whatsapp||'').includes(q);
+                const mTemp = temp ? l.temperature === temp : true;
+                const mCity = city ? l.city === city : true;
+                
+                let mAppt = true;
+                if(appt === 'yes') mAppt = (l.appointment && l.appointment.trim() !== '');
+                if(appt === 'no') mAppt = (!l.appointment || l.appointment.trim() === '');
+
+                return mQuery && mTemp && mCity && mAppt;
+            });
+
+            renderLeadsTable(filtered);
+        }
+
+        function renderLeadsTable(data) {
+            const tbody = document.getElementById('leads-table-body');
+            const emptyState = document.getElementById('empty-state');
+
+            if(data.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            data.sort((a,b) => {
+                // Priority logic: Overdue > Today > Upcoming > None
+                const aAppt = getApptStatus(a.appointment || a.followUp).status;
+                const bAppt = getApptStatus(b.appointment || b.followUp).status;
+                
+                const priority = { 'overdue': 4, 'today': 3, 'upcoming': 2, 'none': 1 };
+                const aPrio = priority[aAppt];
+                const bPrio = priority[bAppt];
+
+                if (aPrio !== bPrio) return bPrio - aPrio;
+                return b.score - a.score;
+            });
+
+            tbody.innerHTML = data.map(lead => {
+                const badgeClass = lead.temperature === 'HOT' ? 'badge-hot' : (lead.temperature === 'WARM' ? 'badge-warm' : 'badge-cold');
+                const nextAction = lead.appointment || lead.followUp;
+                const apptMeta = getApptStatus(nextAction);
+                
+                const waLink = lead.whatsapp ? `https://wa.me/${cleanPhone(lead.whatsapp)}` : null;
+                const telLink = lead.phone ? `tel:${cleanPhone(lead.phone)}` : null;
+                const mailLink = lead.email ? `mailto:${lead.email}` : null;
+
+                return `
+                    <tr class="hover:bg-blue-50/50 transition cursor-pointer group" onclick="openLeadModal('${lead.id}')">
+                        <td class="p-4">
+                            <div class="font-bold text-slate-800">${lead.businessName}</div>
+                            <div class="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                                <span><i class="fa-solid fa-location-dot text-slate-300"></i> ${lead.city || 'Unknown'}</span>
+                                ${lead.rating ? `<span class="text-yellow-500"><i class="fa-solid fa-star"></i> ${lead.rating}</span>` : ''}
+                            </div>
+                        </td>
+                        <td class="p-4">
+                            <div class="font-medium text-slate-700">${lead.ownerName}</div>
+                            <div class="text-xs text-slate-500 mt-0.5">${lead.whatsapp || lead.phone || lead.email || 'No contact'}</div>
+                        </td>
+                        <td class="p-4 text-center">
+                            <span class="${badgeClass} px-3 py-1 rounded-full text-xs font-black tracking-wide inline-flex flex-col items-center leading-tight">
+                                <span>${lead.score}</span>
+                                <span class="text-[9px] uppercase opacity-80">${lead.temperature}</span>
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            ${apptMeta.status !== 'none' 
+                                ? `<span class="text-xs font-bold px-2.5 py-1.5 rounded ${apptMeta.color} ${apptMeta.bg} flex items-center gap-1 w-max">
+                                    ${apptMeta.status === 'today' ? '<i class="fa-solid fa-bolt"></i>' : (apptMeta.status === 'overdue' ? '<i class="fa-solid fa-circle-exclamation"></i>' : '<i class="fa-regular fa-calendar-check"></i>')} 
+                                    ${formatDisplayDate(nextAction)}
+                                   </span>` 
+                                : `<span class="text-xs text-slate-300 italic">None Scheduled</span>`}
+                        </td>
+                        <td class="p-4">
+                            <span class="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200 whitespace-nowrap">${lead.workflowStatus}</span>
+                        </td>
+                        <td class="p-4 text-right">
+                            <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                ${waLink ? `<button onclick="event.stopPropagation(); window.open('${waLink}', '_blank')" class="w-8 h-8 rounded bg-green-50 text-green-600 hover:bg-green-500 hover:text-white transition shadow-sm" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}
+                                ${telLink ? `<button onclick="event.stopPropagation(); window.location.href='${telLink}'" class="w-8 h-8 rounded bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition shadow-sm" title="Call"><i class="fa-solid fa-phone"></i></button>` : ''}
+                                ${mailLink ? `<button onclick="event.stopPropagation(); window.location.href='${mailLink}'" class="w-8 h-8 rounded bg-slate-100 text-slate-500 hover:bg-slate-500 hover:text-white transition shadow-sm" title="Email"><i class="fa-regular fa-envelope"></i></button>` : ''}
+                                <button class="w-8 h-8 rounded bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white transition shadow-sm border border-slate-200 ml-2" title="View Details">
+                                    <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- 8.5 SMART AGENDA / CALENDAR ---
+        function renderCalendar() {
+            const listOverdue = document.getElementById('agenda-overdue');
+            const listToday = document.getElementById('agenda-today');
+            const listUpcoming = document.getElementById('agenda-upcoming');
+
+            // Gather all scheduled leads
+            const scheduledLeads = state.leads.filter(l => (l.appointment && l.appointment.trim() !== '') || (l.followUp && l.followUp.trim() !== ''));
+
+            let overdueHtml = '', todayHtml = '', upcomingHtml = '';
+
+            scheduledLeads.forEach(lead => {
+                const datesToProcess = [];
+                if (lead.appointment) datesToProcess.push({ date: lead.appointment, type: 'Meeting' });
+                if (lead.followUp) datesToProcess.push({ date: lead.followUp, type: 'Follow-up' });
+
+                datesToProcess.forEach(item => {
+                    const status = getApptStatus(item.date).status;
+                    const cardHtml = `
+                        <div class="p-4 border rounded-xl hover:shadow-md cursor-pointer transition ${status === 'today' ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-slate-100'}" onclick="openLeadModal('${lead.id}')">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <h4 class="font-bold text-slate-800 text-sm">${lead.businessName}</h4>
+                                    <p class="text-xs text-slate-500">${lead.ownerName}</p>
+                                </div>
+                                <span class="text-[10px] uppercase font-bold px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200">${item.type}</span>
+                            </div>
+                            <div class="text-sm font-medium ${status === 'overdue' ? 'text-red-600' : (status === 'today' ? 'text-emerald-700' : 'text-purple-600')} flex items-center gap-1.5">
+                                <i class="fa-regular fa-clock"></i> ${formatDisplayDate(item.date)}
+                            </div>
+                        </div>
+                    `;
+                    
+                    if(status === 'overdue') overdueHtml += cardHtml;
+                    else if(status === 'today') todayHtml += cardHtml;
+                    else upcomingHtml += cardHtml;
+                });
+            });
+
+            listOverdue.innerHTML = overdueHtml || '<p class="text-xs text-slate-400 italic">No overdue actions.</p>';
+            listToday.innerHTML = todayHtml || '<p class="text-xs text-slate-400 italic">Clear for today.</p>';
+            listUpcoming.innerHTML = upcomingHtml || '<p class="text-xs text-slate-400 italic">No upcoming actions.</p>';
+        }
+
+        // --- 9. LEAD DETAIL MODAL & SMART SCHEDULING ---
+        function openLeadModal(id) {
+            const lead = state.leads.find(l => l.id === id);
+            if(!lead) return;
+
+            const modal = document.getElementById('lead-modal');
+            const content = document.getElementById('lead-modal-content');
+
+            const badgeClass = lead.temperature === 'HOT' ? 'badge-hot' : (lead.temperature === 'WARM' ? 'badge-warm' : 'badge-cold');
+            
+            const waLink = lead.whatsapp ? `https://wa.me/${cleanPhone(lead.whatsapp)}` : null;
+            const telLink = lead.phone ? `tel:${cleanPhone(lead.phone)}` : null;
+            const mailLink = lead.email ? `mailto:${lead.email}` : null;
+            const mapLink = lead.mapsUrl ? lead.mapsUrl : (lead.address ? `https://maps.google.com/?q=${encodeURIComponent(lead.address)}` : null);
+            const siteLink = lead.website ? (lead.website.startsWith('http') ? lead.website : 'https://'+lead.website) : null;
+
+            let suggestions = [];
+            if (!lead.website || lead.website.trim().length < 4) {
+                suggestions.push({text: 'Pitch Website Service', icon: 'fa-globe', color: 'text-blue-700 bg-blue-100 border-blue-200'});
+            }
+            const rate = parseFloat(lead.rating);
+            if (isNaN(rate) || rate < 4.0) {
+                suggestions.push({text: 'Pitch Reputation Management', icon: 'fa-star-half-stroke', color: 'text-orange-700 bg-orange-100 border-orange-200'});
+            }
+            const revs = parseInt(lead.reviews, 10);
+            if (!isNaN(revs) && revs > 100) {
+                suggestions.push({text: 'Upsell Automation', icon: 'fa-robot', color: 'text-purple-700 bg-purple-100 border-purple-200'});
+            }
+            if (suggestions.length === 0) {
+                suggestions.push({text: 'Standard Follow-up', icon: 'fa-handshake', color: 'text-slate-600 bg-slate-100 border-slate-200'});
+            }
+
+            const expRev = ((lead.dealValue || 0) * (lead.probability || 0)) / 100;
+
+            content.innerHTML = `
+                <div class="bg-slate-50 p-6 md:p-8 border-b border-slate-200">
+                    <div class="flex flex-col md:flex-row justify-between items-start gap-6">
+                        <div>
+                            <div class="flex items-center gap-3 mb-2">
+                                <h2 class="text-3xl font-black text-slate-800">${lead.businessName}</h2>
+                                <span class="${badgeClass} px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide">${lead.temperature} (${lead.score} pts)</span>
+                            </div>
+                            <p class="text-slate-600 font-medium text-lg"><i class="fa-regular fa-user text-slate-400 mr-2"></i> ${lead.ownerName}</p>
+                            
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 flex items-center mr-2"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> AI Pitch:</span>
+                                ${suggestions.map(s => `<span class="text-xs font-bold px-2.5 py-1 border rounded-md ${s.color}"><i class="fa-solid ${s.icon} mr-1"></i> ${s.text}</span>`).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-wrap justify-end gap-2 w-full md:w-auto">
+                            ${waLink ? `<a href="${waLink}" target="_blank" class="px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg bg-green-500 text-white font-bold hover:bg-green-600 shadow transition" title="WhatsApp"><i class="fa-brands fa-whatsapp text-lg"></i> WhatsApp</a>` : ''}
+                            ${telLink ? `<a href="${telLink}" class="px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg bg-blue-500 text-white font-bold hover:bg-blue-600 shadow transition" title="Call"><i class="fa-solid fa-phone text-lg"></i> Call</a>` : ''}
+                            <button onclick="toggleLeadEdit('${lead.id}')" class="px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg bg-indigo-500 text-white font-bold hover:bg-indigo-600 shadow transition" title="Edit Details"><i class="fa-solid fa-pen"></i> Edit Info</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-6 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- Left: Details -->
+                    <div class="md:col-span-2 space-y-6">
+                        <div class="grid grid-cols-2 gap-6 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+                            <div>
+                                <p class="text-[10px] uppercase font-bold text-slate-400 mb-1">Contact Info</p>
+                                <p class="text-sm font-medium text-slate-800"><i class="fa-brands fa-whatsapp w-4 text-green-500"></i> ${lead.whatsapp || '-'}</p>
+                                <p class="text-sm font-medium text-slate-800 mt-2"><i class="fa-solid fa-phone w-4 text-slate-400"></i> ${lead.phone || '-'}</p>
+                                <p class="text-sm font-medium text-slate-800 mt-2 truncate"><i class="fa-regular fa-envelope w-4 text-blue-400"></i> ${lead.email || '-'}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] uppercase font-bold text-slate-400 mb-1">Business Stats</p>
+                                <p class="text-sm font-medium text-slate-800"><i class="fa-solid fa-star w-4 text-yellow-400"></i> ${lead.rating || 'No Rating'} (${lead.reviews || 0} reviews)</p>
+                                <p class="text-sm font-medium text-slate-800 mt-2 truncate"><i class="fa-solid fa-globe w-4 text-slate-400"></i> ${siteLink ? `<a href="${siteLink}" target="_blank" class="text-blue-600 hover:underline">${lead.website}</a>` : '-'}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-6 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+                            <div class="col-span-2">
+                                <p class="text-[10px] uppercase font-bold text-slate-400 mb-3 flex justify-between items-center">
+                                    Location Info
+                                    ${mapLink ? `<a href="${mapLink}" target="_blank" class="text-blue-500 hover:underline text-xs lowercase"><i class="fa-solid fa-map-location-dot"></i> Open Maps</a>` : ''}
+                                </p>
+                                <p class="text-sm text-slate-700 font-medium leading-relaxed">
+                                    <span class="block mb-1"><i class="fa-solid fa-city w-4 text-slate-400"></i> ${lead.city || 'City Unknown'}</span>
+                                    <span><i class="fa-solid fa-map-pin w-4 text-slate-400"></i> ${lead.address || 'Address Unknown'}</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Revenue -->
+                        <div class="bg-emerald-50 p-5 rounded-xl border border-emerald-100 shadow-sm">
+                            <p class="text-[10px] uppercase font-bold text-emerald-600 mb-3 flex items-center gap-2"><i class="fa-solid fa-chart-line"></i> Pipeline Financials</p>
+                            <div class="flex gap-4">
+                                <div class="flex-1">
+                                    <label class="text-[10px] font-bold text-emerald-800 uppercase block mb-1">Deal Value ($)</label>
+                                    <input type="number" id="inp-deal-val-${lead.id}" value="${lead.dealValue || ''}" oninput="updateLeadRevenue('${lead.id}')" class="w-full p-2 text-sm font-bold border border-emerald-200 rounded outline-none focus:ring-2 focus:ring-emerald-500" placeholder="0">
+                                </div>
+                                <div class="flex-1">
+                                    <label class="text-[10px] font-bold text-emerald-800 uppercase block mb-1">Probability (%)</label>
+                                    <input type="number" id="inp-prob-${lead.id}" value="${lead.probability || 10}" min="0" max="100" oninput="updateLeadRevenue('${lead.id}')" class="w-full p-2 text-sm font-bold border border-emerald-200 rounded outline-none focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                            </div>
+                            <div class="pt-3 border-t border-emerald-200 mt-4 flex justify-between items-center">
+                                <span class="text-xs font-bold text-emerald-700">Expected Revenue:</span>
+                                <span class="text-xl font-black text-emerald-600" id="lbl-exp-rev-${lead.id}">${formatMoney(expRev)}</span>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right: Smart Scheduling & Notes -->
+                    <div class="space-y-4">
+                        
+                        <!-- Smart Scheduling Widget -->
+                        <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden" id="widget-schedule-${lead.id}">
+                            <div class="bg-purple-600 p-3 flex justify-between items-center text-white">
+                                <span class="font-bold text-sm flex items-center gap-2"><i class="fa-regular fa-calendar-check"></i> Smart Scheduling</span>
+                            </div>
+                            <div class="p-4 space-y-4">
+                                
+                                <!-- Main Meeting -->
+                                <div>
+                                    <label class="text-[10px] uppercase font-bold text-slate-500 mb-1 flex justify-between">
+                                        Meeting / Appointment
+                                    </label>
+                                    <input type="datetime-local" value="${lead.appointment || ''}" oninput="updateLeadSchedule('${lead.id}', 'appointment', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-medium bg-slate-50">
+                                </div>
+
+                                <hr class="border-slate-100">
+
+                                <!-- Quick Follow-up -->
+                                <div>
+                                    <label class="text-[10px] uppercase font-bold text-slate-500 mb-1 flex justify-between">
+                                        Next Follow-up
+                                    </label>
+                                    <input type="datetime-local" id="input-fu-${lead.id}" value="${lead.followUp || ''}" oninput="updateLeadSchedule('${lead.id}', 'followUp', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-medium bg-slate-50 mb-2">
+                                    
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <button onclick="quickSchedule('${lead.id}', 'followUp', 1)" class="py-1 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-600 hover:border-purple-400 hover:text-purple-600 transition shadow-sm">+1 Day</button>
+                                        <button onclick="quickSchedule('${lead.id}', 'followUp', 3)" class="py-1 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-600 hover:border-purple-400 hover:text-purple-600 transition shadow-sm">+3 Days</button>
+                                        <button onclick="quickSchedule('${lead.id}', 'followUp', 7)" class="py-1 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-600 hover:border-purple-400 hover:text-purple-600 transition shadow-sm">+1 Week</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Status Edit -->
+                        <div>
+                            <select id="modal-status-edit" onchange="updateLeadField('${lead.id}', 'workflowStatus', this.value)" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm cursor-pointer">
+                                ${['New Lead', 'Contacted', 'Meeting Scheduled', 'In Negotiation', 'Closed Won', 'Closed Lost', 'Unqualified'].map(opt => 
+                                    `<option value="${opt}" ${lead.workflowStatus === opt ? 'selected' : ''}>${opt}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+
+                        <!-- Notes Editor -->
+                        <div class="relative">
+                            <span class="absolute top-3 right-3 text-green-500 font-bold text-xs hidden" id="save-indicator"><i class="fa-solid fa-check"></i> Saved</span>
+                            <textarea id="modal-notes-edit" onblur="updateLeadField('${lead.id}', 'notes', this.value)" placeholder="Sales notes (auto-saves)..." class="w-full h-40 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner resize-none">${lead.notes || ''}</textarea>
+                        </div>
+
+                    </div>
+                </div>
+            `;
+
+            modal.classList.remove('hidden');
+        }
+
+        // --- SCHEDULING LOGIC ---
+        function updateLeadSchedule(id, field, value) {
+            const lead = state.leads.find(l => l.id === id);
+            if(!lead) return;
+
+            lead[field] = value;
+            
+            // Recalculate score if meeting changes
+            if(field === 'appointment') {
+                lead.score = calculateScore(lead);
+                lead.temperature = getStatusFromScore(lead.score);
+            }
+            
+            saveData();
+            filterLeads();
+
+            // Flash UI
+            const widget = document.getElementById(`widget-schedule-${id}`);
+            if(widget) {
+                widget.classList.remove('flash-success');
+                void widget.offsetWidth; // trigger reflow
+                widget.classList.add('flash-success');
+            }
+        }
+
+        function quickSchedule(id, field, daysToAdd) {
+            const date = new Date();
+            date.setDate(date.getDate() + daysToAdd);
+            
+            // If setting it out, default to 10:00 AM of that day
+            date.setHours(10, 0, 0, 0); 
+            
+            const formatted = toDatetimeLocal(date);
+            
+            // Update input UI
+            const input = document.getElementById(field === 'followUp' ? `input-fu-${id}` : `input-appt-${id}`);
+            if(input) input.value = formatted;
+
+            // Trigger backend update
+            updateLeadSchedule(id, field, formatted);
+        }
+
+        // --- EDITING & UPDATES ---
+        function toggleLeadEdit(id) {
+            const lead = state.leads.find(l => l.id === id);
+            if (!lead) return;
+
+            const content = document.getElementById('lead-modal-content');
+            
+            content.innerHTML = `
+                <div class="bg-indigo-600 p-6 md:p-8 border-b border-indigo-700 flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-3"><i class="fa-solid fa-pen-to-square"></i> Edit Lead Profile</h2>
+                    <button onclick="openLeadModal('${id}')" class="text-indigo-200 hover:text-white font-bold text-sm bg-indigo-700/50 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">Cancel</button>
+                </div>
+                <div class="p-6 md:p-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Business Name</label>
+                            <input id="edit-business" value="${lead.businessName || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium">
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Owner Name</label>
+                            <input id="edit-owner" value="${lead.ownerName || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium">
+                        </div>
+                        
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">WhatsApp Phone</label>
+                            <input id="edit-wa" value="${lead.whatsapp || ''}" placeholder="e.g. 1234567890" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Office Phone</label>
+                            <input id="edit-phone" value="${lead.phone || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Email</label>
+                            <input id="edit-email" value="${lead.email || ''}" type="email" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">City</label>
+                            <input id="edit-city" value="${lead.city || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+
+                        <div class="col-span-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Full Address</label>
+                            <input id="edit-address" value="${lead.address || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Website URL</label>
+                            <input id="edit-website" value="${lead.website || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Google Maps URL</label>
+                            <input id="edit-maps" value="${lead.mapsUrl || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Rating (1.0 - 5.0)</label>
+                            <input id="edit-rating" type="number" step="0.1" value="${lead.rating || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Total Reviews</label>
+                            <input id="edit-reviews" type="number" value="${lead.reviews || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="mt-8 flex justify-end">
+                        <button onclick="saveLeadEdit('${id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition flex items-center gap-2">
+                            <i class="fa-solid fa-save"></i> Save Profile & Update Score
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function saveLeadEdit(id) {
+            const lead = state.leads.find(l => l.id === id);
+            if (!lead) return;
+
+            lead.businessName = document.getElementById('edit-business').value.trim();
+            lead.ownerName = document.getElementById('edit-owner').value.trim();
+            lead.whatsapp = cleanPhone(document.getElementById('edit-wa').value.trim());
+            lead.phone = cleanPhone(document.getElementById('edit-phone').value.trim());
+            lead.email = document.getElementById('edit-email').value.trim();
+            lead.city = document.getElementById('edit-city').value.trim();
+            lead.address = document.getElementById('edit-address').value.trim();
+            lead.website = document.getElementById('edit-website').value.trim();
+            lead.mapsUrl = document.getElementById('edit-maps').value.trim();
+            lead.rating = document.getElementById('edit-rating').value;
+            lead.reviews = document.getElementById('edit-reviews').value;
+
+            // Re-calculate automated engine score based on new data
+            lead.score = calculateScore(lead);
+            lead.temperature = getStatusFromScore(lead.score);
+
+            saveData();
+            filterLeads(); 
+            openLeadModal(id); // Reload modal view to updated state
+        }
+
+        function updateLeadRevenue(id) {
+            const lead = state.leads.find(l => l.id === id);
+            if(!lead) return;
+
+            const valStr = document.getElementById(`inp-deal-val-${id}`).value;
+            const probStr = document.getElementById(`inp-prob-${id}`).value;
+
+            lead.dealValue = parseFloat(valStr) || 0;
+            lead.probability = parseInt(probStr, 10) || 0;
+
+            const exp = (lead.dealValue * lead.probability) / 100;
+            document.getElementById(`lbl-exp-rev-${id}`).innerText = formatMoney(exp);
+
+            saveData(); // Persist and update dashboard metrics in bg
+        }
+
+        function closeLeadModal() {
+            document.getElementById('lead-modal').classList.add('hidden');
+        }
+
+        function updateLeadField(id, field, value) {
+            const lead = state.leads.find(l => l.id === id);
+            if(lead) {
+                lead[field] = value;
+                saveData(); // Persist
+                filterLeads(); // Update background table
+                
+                if(field === 'notes') {
+                    const ind = document.getElementById('save-indicator');
+                    ind.classList.remove('hidden');
+                    setTimeout(() => ind.classList.add('hidden'), 2000);
+                }
+            }
+        }
+
+        function deleteLead(id) {
+            if(confirm('Are you absolutely sure you want to remove this lead?')) {
+                state.leads = state.leads.filter(l => l.id !== id);
+                saveData();
+                closeLeadModal();
+                filterLeads();
+            }
+        }
+
+        // Boot app
+        init();
+
+    </script>
+</body>
+</html>

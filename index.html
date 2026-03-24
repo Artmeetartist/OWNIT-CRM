@@ -1506,7 +1506,7 @@
                 
                 if(parsed.length < 2) return alert("File is empty or invalid format.");
                 
-                rawCSVHeaders = parsed[0].map(h => h.trim());
+                rawCSVHeaders = parsed[0].map(h => h ? h.trim() : '');
                 rawCSVRows = parsed.slice(1);
                 
                 showMappingUI();
@@ -1523,6 +1523,26 @@
             if(s2) s2.classList.remove('hidden');
             if(container) container.innerHTML = '';
 
+            // Smart aliases for auto-detecting columns accurately
+            const aliases = {
+                ownerName: ['name', 'contact name', 'owner', 'contact', 'first name', 'person', 'full name'],
+                businessName: ['company', 'business', 'organization', 'account', 'company name', 'agency'],
+                whatsapp: ['wa', 'whatsapp', 'mobile', 'cell', 'mobile number', 'cellphone'],
+                phone: ['phone', 'telephone', 'number', 'contact number', 'office phone', 'landline'],
+                email: ['email', 'e-mail', 'email address'],
+                city: ['city', 'town', 'municipality', 'location'],
+                address: ['address', 'street', 'full address'],
+                website: ['website', 'url', 'site', 'domain', 'web', 'link'],
+                rating: ['rating', 'score', 'stars', 'google rating'],
+                reviews: ['reviews', 'review count', 'total reviews'],
+                appointment: ['appointment', 'meeting', 'date', 'scheduled', 'booked'],
+                followUp: ['follow up', 'followup', 'next action', 'callback'],
+                mapsUrl: ['maps url', 'google maps', 'map link', 'gmaps', 'maps'],
+                notes: ['notes', 'remarks', 'description', 'info', 'comments']
+            };
+
+            let assignedIndexes = new Set();
+
             CRM_FIELDS.forEach(field => {
                 const wrapper = document.createElement('div');
                 wrapper.className = 'flex flex-col gap-1';
@@ -1532,22 +1552,43 @@
                 label.innerText = field.label + (field.required ? ' *' : '');
 
                 const select = document.createElement('select');
-                select.className = 'p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 outline-none';
+                select.className = 'p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 outline-none truncate font-medium text-slate-700';
                 select.id = `map_${field.key}`;
 
                 let optionsHTML = `<option value="">-- Ignore this field --</option>`;
                 
                 let matchedIndex = -1;
+                let highestScore = 0;
+                
                 rawCSVHeaders.forEach((csvHeader, idx) => {
                     const cleanHeader = csvHeader.toLowerCase().replace(/[^a-z0-9]/g, '');
                     const cleanKey = field.key.toLowerCase();
                     const cleanLabel = field.label.toLowerCase().replace(/[^a-z0-9]/g, '');
                     
-                    if (cleanHeader === cleanKey || cleanHeader.includes(cleanKey) || cleanLabel.includes(cleanHeader)) {
+                    let score = 0;
+                    
+                    if (cleanHeader && cleanHeader === cleanKey) score = 100;
+                    else if (cleanHeader && cleanHeader === cleanLabel) score = 90;
+                    else if (cleanHeader && aliases[field.key] && aliases[field.key].map(a => a.replace(/[^a-z0-9]/g, '')).includes(cleanHeader)) score = 80;
+                    else if (cleanHeader && cleanLabel.includes(cleanHeader) && cleanHeader.length > 3) score = 50;
+                    else if (cleanHeader && cleanHeader.includes(cleanLabel) && cleanLabel.length > 3) score = 50;
+
+                    // Avoid double mapping the same column to multiple fields
+                    if (assignedIndexes.has(idx)) score -= 100;
+
+                    if (score > highestScore && score > 0) {
+                        highestScore = score;
                         matchedIndex = idx;
                     }
-                    optionsHTML += `<option value="${idx}">${csvHeader}</option>`;
+                    
+                    // Fallback for blank/empty CSV column headers
+                    const displayHeader = csvHeader ? csvHeader : `[Column ${idx + 1} - Blank Header]`;
+                    optionsHTML += `<option value="${idx}">${displayHeader}</option>`;
                 });
+
+                if (matchedIndex !== -1) {
+                    assignedIndexes.add(matchedIndex);
+                }
 
                 select.innerHTML = optionsHTML;
                 if (matchedIndex !== -1) select.value = matchedIndex;

@@ -312,9 +312,42 @@
 
             <!-- 1.5 CAMPAIGNS VIEW -->
             <div id="view-campaigns" class="hidden-view fade-in">
-                <div class="mb-8">
-                    <h2 class="text-2xl font-bold text-slate-800">Campaign Management</h2>
-                    <p class="text-slate-500 text-sm">Track performance across different data imports and outreach lists.</p>
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Campaign Management</h2>
+                        <p class="text-slate-500 text-sm">Track performance across different data imports and outreach lists.</p>
+                    </div>
+                    <button onclick="switchView('upload')" class="bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-lg shadow-sm font-medium flex items-center gap-2 transition whitespace-nowrap">
+                        <i class="fa-solid fa-file-import"></i> Import New Campaign
+                    </button>
+                </div>
+                
+                <!-- CSV Guide Section -->
+                <div class="bg-violet-50 border border-violet-100 rounded-xl p-5 md:p-6 mb-8 flex flex-col md:flex-row gap-6 items-center shadow-sm">
+                    <div class="flex-1">
+                        <h3 class="text-lg font-bold text-violet-900 mb-2 flex items-center gap-2">
+                            <span class="bg-white p-1.5 rounded-md shadow-sm border border-violet-200 flex items-center justify-center"><i class="fa-solid fa-table text-violet-600"></i></span>
+                            CSV Formatting Guide
+                        </h3>
+                        <p class="text-sm text-violet-800 mb-3">To ensure your data maps instantly and automatically when importing, set up your Google Sheet or Excel file with these exact column headers before downloading as a CSV:</p>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="bg-white border border-violet-200 text-violet-700 px-2 py-1 rounded text-[10px] font-bold font-mono shadow-sm">Business Name *</span>
+                            <span class="bg-white border border-violet-200 text-violet-700 px-2 py-1 rounded text-[10px] font-bold font-mono shadow-sm">Owner Name *</span>
+                            <span class="bg-white border border-violet-200 text-violet-700 px-2 py-1 rounded text-[10px] font-bold font-mono shadow-sm">WhatsApp</span>
+                            <span class="bg-white border border-violet-200 text-violet-700 px-2 py-1 rounded text-[10px] font-bold font-mono shadow-sm">Phone</span>
+                            <span class="bg-white border border-violet-200 text-violet-700 px-2 py-1 rounded text-[10px] font-bold font-mono shadow-sm">Email</span>
+                            <span class="bg-white border border-violet-200 text-violet-700 px-2 py-1 rounded text-[10px] font-bold font-mono shadow-sm">City</span>
+                            <span class="bg-white border border-violet-200 text-violet-700 px-2 py-1 rounded text-[10px] font-bold font-mono shadow-sm">Address</span>
+                            <span class="bg-white border border-violet-200 text-violet-700 px-2 py-1 rounded text-[10px] font-bold font-mono shadow-sm">Website</span>
+                            <span class="bg-white border border-violet-200 text-violet-700 px-2 py-1 rounded text-[10px] font-bold font-mono shadow-sm">Rating</span>
+                            <span class="bg-white border border-violet-200 text-violet-700 px-2 py-1 rounded text-[10px] font-bold font-mono shadow-sm">Total Reviews</span>
+                        </div>
+                    </div>
+                    <div class="shrink-0 flex flex-col gap-3 w-full md:w-auto">
+                        <button onclick="downloadCSVTemplate()" class="w-full bg-white hover:bg-slate-50 text-violet-700 border border-violet-200 px-5 py-3 rounded-xl shadow-sm font-bold transition text-sm flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-download"></i> Download Template
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="campaigns-grid">
@@ -1534,6 +1567,26 @@
             if(s1) s1.classList.remove('hidden');
             rawCSVHeaders = [];
             rawCSVRows = [];
+        }
+
+        // Utility: Download CSV Template
+        function downloadCSVTemplate() {
+            const headers = ['Business Name', 'Owner Name', 'WhatsApp', 'Phone', 'Email', 'City', 'Address', 'Website', 'Rating', 'Total Reviews'];
+            const sampleRow = ['Acme Plumbing', 'John Smith', '1234567890', '0987654321', 'john@acme.com', 'San Francisco', '123 Tech Lane', 'acme.com', '4.8', '120'];
+            
+            const csvContent = headers.join(',') + '\n' + sampleRow.map(v => `"${v}"`).join(',');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'OWNIT_Lead_Import_Template.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showToast("Template downloaded successfully!");
         }
 
         // --- 6. LEAD PROCESSING ENGINE ---

@@ -129,6 +129,34 @@
 </head>
 <body class="flex h-screen overflow-hidden text-slate-800">
 
+    <!-- LOGIN SCREEN OVERLAY -->
+    <div id="login-wrapper" class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-violet-950 transition-opacity duration-500">
+        <div class="bg-white p-8 md:p-10 rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-slide-up">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-violet-600 text-white rounded-2xl flex items-center justify-center font-bold text-3xl mx-auto mb-4 shadow-[0_10px_25px_-5px_rgba(124,58,237,0.5)]">O</div>
+                <h1 class="text-3xl font-black text-slate-800 tracking-tight">OWNIT</h1>
+                <p class="text-slate-500 text-sm mt-2 font-medium">Please sign in to access your CRM.</p>
+            </div>
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-5">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1.5">Your Name</label>
+                    <input type="text" id="login-name" required placeholder="e.g. John Doe" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:bg-white outline-none text-sm transition font-medium text-slate-800">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1.5">Email Address</label>
+                    <input type="email" id="login-email" required placeholder="sales@ownit24.com" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:bg-white outline-none text-sm transition font-medium text-slate-800">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1.5">Password</label>
+                    <input type="password" id="login-password" required placeholder="••••••••" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:bg-white outline-none text-sm transition font-medium text-slate-800">
+                </div>
+                <button type="submit" class="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition mt-4 flex justify-center items-center gap-2">
+                    Sign In <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
 
@@ -202,6 +230,7 @@
             
             <!-- Quick Actions -->
             <div class="flex items-center gap-4">
+                <span class="hidden sm:block text-sm font-bold text-slate-600 mr-2" id="header-user-name"></span>
                 <button onclick="openAddLeadModal()" class="hidden md:flex bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg shadow-sm text-sm font-medium items-center gap-2 transition">
                     <i class="fa-solid fa-plus"></i> Add Lead
                 </button>
@@ -857,7 +886,9 @@
                 date: new Date().toISOString().split('T')[0],
                 todos: [],
                 notepad: ''
-            }
+            },
+            userName: '',
+            isAuthenticated: false
         };
 
         let currentActiveLeadId = null;
@@ -961,6 +992,13 @@
                 } catch(e) { console.error("Data load error", e); }
             }
 
+            // Authentication Check
+            if (sessionStorage.getItem('ownit_auth') === 'true') {
+                const loginWrapper = document.getElementById('login-wrapper');
+                if (loginWrapper) loginWrapper.remove();
+                updateHeaderName();
+            }
+
             // Inject new fun tasks into existing state to ensure they show up immediately
             const funTasks = [
                 '📞 100 Calls → Book 3–5 Appointments',
@@ -1018,6 +1056,38 @@
             initGoogleAPI();
             renderDashboard(); // Default view
             renderWidget();
+        }
+
+        // --- AUTHENTICATION ---
+        function handleLogin(e) {
+            e.preventDefault();
+            const name = document.getElementById('login-name').value.trim();
+            const email = document.getElementById('login-email').value.trim();
+            const pass = document.getElementById('login-password').value;
+
+            if (email === 'sales@ownit24.com' && pass === 'Dodo@26#MD') {
+                sessionStorage.setItem('ownit_auth', 'true');
+                state.userName = name;
+                saveData();
+                
+                const loginWrapper = document.getElementById('login-wrapper');
+                loginWrapper.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => {
+                    if(loginWrapper.parentNode) loginWrapper.remove();
+                    showToast(`Welcome to OWNIT, ${name}! 👋`);
+                }, 500);
+                
+                updateHeaderName();
+            } else {
+                alert('Invalid email or password. Please try again.');
+            }
+        }
+
+        function updateHeaderName() {
+            const headerNameEl = document.getElementById('header-user-name');
+            if (headerNameEl && state.userName) {
+                headerNameEl.innerText = `Welcome, ${state.userName}!`;
+            }
         }
 
         function generateId() {
@@ -1709,7 +1779,7 @@
                                 <td class="p-4 text-slate-500 whitespace-nowrap">${lead.city || '-'}</td>
                                 <td class="p-4 whitespace-nowrap text-right">
                                     <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        ${waLink ? `<button onclick="event.stopPropagation(); window.open('${waLink}', '_blank')" class="w-8 h-8 rounded bg-green-50 text-green-600 hover:bg-green-500 hover:text-white transition shadow-sm" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}
+                                        ${waLink ? `<button onclick="event.stopPropagation(); window.open('${waLink}', '_blank')" class="w-8 h-8 rounded bg-green-50 text-green-600 hover:bg-green-50 hover:text-white transition shadow-sm" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}
                                         ${telLink ? `<button onclick="event.stopPropagation(); window.location.href='${telLink}'" class="w-8 h-8 rounded bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition shadow-sm" title="Call"><i class="fa-solid fa-phone"></i></button>` : ''}
                                         ${mailLink ? `<button onclick="event.stopPropagation(); window.location.href='${mailLink}'" class="w-8 h-8 rounded bg-slate-100 text-slate-500 hover:bg-slate-500 hover:text-white transition shadow-sm" title="Email"><i class="fa-regular fa-envelope"></i></button>` : ''}
                                     </div>
@@ -2249,14 +2319,14 @@
                                     <div class="space-y-4">
                                         <div>
                                             <p class="text-[10px] uppercase font-bold text-slate-400 mb-1">Owner Name</p>
-                                            <p class="text-lg font-bold text-slate-800 group/copy flex items-center gap-2 w-max">
+                                            <p class="text-xl font-bold text-slate-800 group/copy flex items-center gap-2 w-max">
                                                 ${lead.ownerName || 'Unknown Owner'}
                                                 <button onclick="copyText('${String(lead.ownerName || '').replace(/'/g, "\\'")}')" class="text-slate-300 hover:text-violet-600 opacity-0 group-hover/copy:opacity-100 transition"><i class="fa-regular fa-copy text-sm"></i></button>
                                             </p>
                                         </div>
                                         <div>
                                             <p class="text-[10px] uppercase font-bold text-slate-400 mb-1">WhatsApp</p>
-                                            <p class="text-xl font-black text-green-600 group/copy flex items-center gap-2 w-max">
+                                            <p class="text-2xl font-black text-green-600 group/copy flex items-center gap-2 w-max">
                                                 <i class="fa-brands fa-whatsapp text-green-500"></i> ${lead.whatsapp || '-'}
                                                 ${lead.whatsapp ? `<button onclick="copyText('${String(lead.whatsapp || '').replace(/'/g, "\\'")}')" class="text-slate-300 hover:text-violet-600 opacity-0 group-hover/copy:opacity-100 transition"><i class="fa-regular fa-copy text-sm"></i></button>` : ''}
                                             </p>
@@ -2514,7 +2584,7 @@
                     selects.forEach(select => {
                         select.value = value;
                         if (select.id === 'modal-status-edit') {
-                            select.className = `w-full p-2.5 mt-1 ${getStatusColorClass(value)} border border-slate-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-violet-500 outline-none shadow-sm cursor-pointer transition text-center md:text-left`;
+                            select.className = `w-full p-2.5 mt-1 ${getStatusColorClass(value)} border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-violet-500 outline-none shadow-sm cursor-pointer transition text-center md:text-left`;
                         } else {
                             select.className = `text-xs font-semibold ${getStatusColorClass(value)} px-2 py-1.5 rounded border border-slate-200 outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer shadow-sm hover:border-violet-400 transition w-full min-w-[140px]`;
                         }
